@@ -34,7 +34,7 @@ PARALLEL_JOBS=1
 DRY_RUN=false
 SEARCH_PATH="."
 OUTPUT_DIR=""
-AUDIO_MODE="auto"   # auto: copy PCM/FLAC, transcode rest | pcm: always PCM | alac: always ALAC | flac: always FLAC
+AUDIO_MODE="pcm"   # auto: copy PCM/FLAC, transcode rest | pcm: always PCM | alac: always ALAC | flac: always FLAC
 
 # ── Colour helpers ────────────────────────────────────────────────────────────
 if [[ -t 1 ]]; then

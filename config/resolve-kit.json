@@ -5,7 +5,7 @@
 
   "defaults": {
     "quality": "sq",
-    "audio_mode": "auto",
+    "audio_mode": "pcm",
     "parallel_jobs": 1,
     "watch_dir": "~/Downloads",
     "output_suffix": "resolve_ready"

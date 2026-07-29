@@ -92,8 +92,8 @@ class WatchDialog(QDialog):
         a_label = QLabel("Audio Mode:", config_card)
         a_label.setFixedWidth(130)
         self.combo_audio = QComboBox(config_card)
-        self.combo_audio.addItem("AUTO — Copy Lossless, Transcode AAC/Opus → FLAC [Default]", "auto")
-        self.combo_audio.addItem("PCM — Force Transcode Audio to PCM 24-Bit 48kHz WAV", "pcm")
+        self.combo_audio.addItem("PCM — Force Transcode Audio to PCM 24-Bit 48kHz WAV [Default]", "pcm")
+        self.combo_audio.addItem("AUTO — Copy Lossless, Transcode AAC/Opus → FLAC", "auto")
         self.combo_audio.addItem("FLAC — Force Transcode Audio to Lossless FLAC", "flac")
         self.combo_audio.addItem("ALAC — Force Transcode Audio to Apple Lossless M4A", "alac")
         a_layout.addWidget(a_label)
@@ -147,15 +147,19 @@ class WatchDialog(QDialog):
         layout.addLayout(footer)
 
     def _browse_watch_dir(self):
-        default_dir = os.path.expanduser("~/Downloads") if os.path.exists(os.path.expanduser("~/Downloads")) else os.path.expanduser("~")
+        from ..components.drop_zone import DropZone
+        default_dir = DropZone.get_default_dir()
         folder = QFileDialog.getExistingDirectory(self, "Select Watch Folder", default_dir)
         if folder:
+            DropZone.save_last_dir(folder)
             self.txt_watch_dir.setText(folder)
 
     def _browse_out_dir(self):
-        default_dir = os.path.expanduser("~/Downloads") if os.path.exists(os.path.expanduser("~/Downloads")) else os.path.expanduser("~")
+        from ..components.drop_zone import DropZone
+        default_dir = DropZone.get_default_dir()
         folder = QFileDialog.getExistingDirectory(self, "Select Output Folder", default_dir)
         if folder:
+            DropZone.save_last_dir(folder)
             self.txt_out_dir.setText(folder)
 
     def _start_watch(self):

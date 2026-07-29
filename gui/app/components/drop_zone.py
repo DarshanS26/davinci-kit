@@ -103,19 +103,57 @@ class DropZone(QWidget):
         if paths:
             self.paths_dropped.emit(paths)
 
-    def _get_default_dir(self) -> str:
+    @staticmethod
+    def get_default_dir() -> str:
+        try:
+            from PyQt6.QtCore import QSettings
+        except ImportError:
+            try:
+                from PySide6.QtCore import QSettings
+            except ImportError:
+                QSettings = None
+
+        if QSettings:
+            settings = QSettings("ResolveKit", "ResolveKitApp")
+            last_dir = settings.value("last_dir", "")
+            if last_dir and os.path.exists(last_dir):
+                return last_dir
+
         downloads = os.path.expanduser("~/Downloads")
         return downloads if os.path.exists(downloads) else os.path.expanduser("~")
 
+    @staticmethod
+    def save_last_dir(path: str):
+        if not path:
+            return
+        if os.path.isfile(path):
+            path = os.path.dirname(path)
+
+        try:
+            from PyQt6.QtCore import QSettings
+        except ImportError:
+            try:
+                from PySide6.QtCore import QSettings
+            except ImportError:
+                QSettings = None
+
+        if QSettings:
+            settings = QSettings("ResolveKit", "ResolveKitApp")
+            settings.setValue("last_dir", path)
+
     def _browse_files(self):
+        default_dir = DropZone.get_default_dir()
         files, _ = QFileDialog.getOpenFileNames(
-            self, "Select Media Files", self._get_default_dir(),
+            self, "Select Media Files", default_dir,
             "Media Files (*.mp4 *.mkv *.mov *.avi *.mxf *.webm *.flv *.ts *.m2ts *.mts *.wav *.mp3 *.flac *.aac)"
         )
         if files:
+            DropZone.save_last_dir(files[0])
             self.paths_dropped.emit(files)
 
     def _browse_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Folder", self._get_default_dir())
+        default_dir = DropZone.get_default_dir()
+        folder = QFileDialog.getExistingDirectory(self, "Select Folder", default_dir)
         if folder:
+            DropZone.save_last_dir(folder)
             self.paths_dropped.emit([folder])

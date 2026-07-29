@@ -91,8 +91,8 @@ class WatchView(QWidget):
         self.combo_audio = QComboBox(config_card)
         self.combo_audio.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.combo_audio.setMinimumContentsLength(10)
-        self.combo_audio.addItem("AUTO — Copy Lossless, Transcode AAC/Opus → PCM 24-Bit [Default]", "auto")
-        self.combo_audio.addItem("PCM — Force Transcode Audio to PCM 24-Bit 48kHz WAV", "pcm")
+        self.combo_audio.addItem("PCM — Force Transcode Audio to PCM 24-Bit 48kHz WAV [Default]", "pcm")
+        self.combo_audio.addItem("AUTO — Copy Lossless, Transcode AAC/Opus → PCM 24-Bit", "auto")
         self.combo_audio.addItem("ALAC — Force Transcode Audio to Apple Lossless M4A", "alac")
         a_layout.addWidget(a_label)
         a_layout.addWidget(self.combo_audio, 1)
@@ -138,13 +138,19 @@ class WatchView(QWidget):
         outer_layout.addWidget(scroll_area, 1)
 
     def _browse_watch_dir(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Watch Folder", os.path.expanduser("~"))
+        from ..components.drop_zone import DropZone
+        default_dir = DropZone.get_default_dir()
+        folder = QFileDialog.getExistingDirectory(self, "Select Watch Folder", default_dir)
         if folder:
+            DropZone.save_last_dir(folder)
             self.txt_watch_dir.setText(folder)
 
     def _browse_out_dir(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Output Folder", os.path.expanduser("~"))
+        from ..components.drop_zone import DropZone
+        default_dir = DropZone.get_default_dir()
+        folder = QFileDialog.getExistingDirectory(self, "Select Output Folder", default_dir)
         if folder:
+            DropZone.save_last_dir(folder)
             self.txt_out_dir.setText(folder)
 
     def _start_watch(self):

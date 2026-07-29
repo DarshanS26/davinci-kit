@@ -64,10 +64,10 @@ class AudioView(QWidget):
         f_label = QLabel("Output Format:", right_box)
         f_label.setFixedWidth(110)
         self.combo_format = QComboBox(right_box)
-        self.combo_format.addItem("WAV — 24-Bit 48kHz PCM WAV (Universal Resolve Support) [Default]", "wav")
-        self.combo_format.addItem("FLAC — 24-Bit 48kHz FLAC (Lossless, 50% Smaller)", "flac")
-        self.combo_format.addItem("ALAC — Apple Lossless M4A", "alac")
-        self.combo_format.addItem("MP3 — 320 kbps High Bitrate MP3", "mp3")
+        self.combo_format.addItem("WAV 24-bit [Default]", "wav")
+        self.combo_format.addItem("FLAC", "flac")
+        self.combo_format.addItem("ALAC", "alac")
+        self.combo_format.addItem("MP3 320k", "mp3")
         self.combo_format.currentIndexChanged.connect(self._update_estimates)
         f_layout.addWidget(f_label)
         f_layout.addWidget(self.combo_format, 1)
@@ -78,9 +78,9 @@ class AudioView(QWidget):
         r_label = QLabel("Sample Rate:", right_box)
         r_label.setFixedWidth(110)
         self.combo_rate = QComboBox(right_box)
-        self.combo_rate.addItem("48000 Hz (48 kHz Studio Standard) [Default]", "48000")
-        self.combo_rate.addItem("44100 Hz (44.1 kHz CD Standard)", "44100")
-        self.combo_rate.addItem("96000 Hz (96 kHz High-Res Master)", "96000")
+        self.combo_rate.addItem("48 kHz [Default]", "48000")
+        self.combo_rate.addItem("44.1 kHz", "44100")
+        self.combo_rate.addItem("96 kHz", "96000")
         r_layout.addWidget(r_label)
         r_layout.addWidget(self.combo_rate, 1)
         right_layout.addLayout(r_layout)
@@ -90,8 +90,8 @@ class AudioView(QWidget):
         c_label = QLabel("Channels:", right_box)
         c_label.setFixedWidth(110)
         self.combo_chans = QComboBox(right_box)
-        self.combo_chans.addItem("Stereo (2 Channels) [Default]", "2")
-        self.combo_chans.addItem("Mono (1 Channel)", "1")
+        self.combo_chans.addItem("Stereo [Default]", "2")
+        self.combo_chans.addItem("Mono", "1")
         c_layout.addWidget(c_label)
         c_layout.addWidget(self.combo_chans, 1)
         right_layout.addLayout(c_layout)
@@ -162,9 +162,11 @@ class AudioView(QWidget):
         main_layout.addWidget(splitter)
 
     def _browse_output(self):
-        default_dir = os.path.expanduser("~/Downloads") if os.path.exists(os.path.expanduser("~/Downloads")) else os.path.expanduser("~")
+        from ..components.drop_zone import DropZone
+        default_dir = DropZone.get_default_dir()
         folder = QFileDialog.getExistingDirectory(self, "Select Output Directory", default_dir)
         if folder:
+            DropZone.save_last_dir(folder)
             self.txt_out_dir.setText(folder)
 
     def _update_estimates(self):

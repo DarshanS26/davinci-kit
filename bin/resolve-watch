@@ -25,7 +25,7 @@ set -euo pipefail
 WATCH_DIR="$HOME/Downloads"
 OUTPUT_CODEC="dnxhr"
 QUALITY="hq"
-AUDIO_MODE="auto"
+AUDIO_MODE="pcm"
 OUTPUT_DIR_CUSTOM=""
 DAEMON=false
 

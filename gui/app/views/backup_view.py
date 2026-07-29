@@ -152,13 +152,19 @@ class BackupView(QWidget):
         outer_layout.addWidget(scroll_area, 1)
 
     def _browse_backup_dir(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Directory to Save Backup", os.path.expanduser("~"))
+        from ..components.drop_zone import DropZone
+        default_dir = DropZone.get_default_dir()
+        folder = QFileDialog.getExistingDirectory(self, "Select Directory to Save Backup", default_dir)
         if folder:
+            DropZone.save_last_dir(folder)
             self.txt_backup_dir.setText(folder)
 
     def _browse_restore_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Backup Tarball", os.path.expanduser("~"), "Archive Files (*.tar.gz *.tgz)")
+        from ..components.drop_zone import DropZone
+        default_dir = DropZone.get_default_dir()
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Backup Tarball", default_dir, "Archive Files (*.tar.gz *.tgz)")
         if file_path:
+            DropZone.save_last_dir(file_path)
             self.txt_restore_file.setText(file_path)
 
     def _run_backup(self):

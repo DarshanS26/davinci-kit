@@ -65,8 +65,8 @@ class TranscodeView(QWidget):
         c_label = QLabel("Video Codec:", right_box)
         c_label.setFixedWidth(110)
         self.combo_codec = QComboBox(right_box)
-        self.combo_codec.addItem("AV1 (.mkv) — Modern SVT-AV1 (4-5x Smaller, Resolve Free) [Default]", "av1")
-        self.combo_codec.addItem("DNxHR (.mov) — Avid Intermediate (Fast Decode)", "dnxhr")
+        self.combo_codec.addItem("AV1 (.mkv) [Default]", "av1")
+        self.combo_codec.addItem("DNxHR (.mov)", "dnxhr")
         self.combo_codec.currentIndexChanged.connect(self._update_estimates)
         c_layout.addWidget(c_label)
         c_layout.addWidget(self.combo_codec, 1)
@@ -93,10 +93,10 @@ class TranscodeView(QWidget):
         a_label = QLabel("Audio Codec:", right_box)
         a_label.setFixedWidth(110)
         self.combo_audio = QComboBox(right_box)
-        self.combo_audio.addItem("AUTO — Copy Lossless, Transcode AAC/Opus → FLAC [Default]", "auto")
-        self.combo_audio.addItem("PCM — Force Transcode Audio to PCM 24-Bit 48kHz WAV", "pcm")
-        self.combo_audio.addItem("FLAC — Force Transcode Audio to Lossless FLAC", "flac")
-        self.combo_audio.addItem("ALAC — Force Transcode Audio to Apple Lossless M4A", "alac")
+        self.combo_audio.addItem("PCM 24-bit WAV [Default]", "pcm")
+        self.combo_audio.addItem("Auto", "auto")
+        self.combo_audio.addItem("FLAC", "flac")
+        self.combo_audio.addItem("ALAC", "alac")
         a_layout.addWidget(a_label)
         a_layout.addWidget(self.combo_audio, 1)
         right_layout.addLayout(a_layout)
@@ -167,9 +167,11 @@ class TranscodeView(QWidget):
         main_layout.addWidget(splitter)
 
     def _browse_output(self):
-        default_dir = os.path.expanduser("~/Downloads") if os.path.exists(os.path.expanduser("~/Downloads")) else os.path.expanduser("~")
+        from ..components.drop_zone import DropZone
+        default_dir = DropZone.get_default_dir()
         folder = QFileDialog.getExistingDirectory(self, "Select Output Directory", default_dir)
         if folder:
+            DropZone.save_last_dir(folder)
             self.txt_out_dir.setText(folder)
 
     def _update_estimates(self):
