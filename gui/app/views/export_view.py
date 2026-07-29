@@ -17,7 +17,7 @@ except ImportError:
     from PySide6.QtCore import Qt, Signal as pyqtSignal
 
 from ..components.file_queue import FileQueue
-from ..backend.system import get_bin_path, check_gpu_info
+from ..backend.system import get_bin_path
 from ..backend.runner import ProcessRunnerThread
 from ..backend.inspector import calculate_estimated_output, format_size
 
@@ -76,29 +76,76 @@ class ExportView(QWidget):
         right_layout.addLayout(res_layout)
 
 
-        # Check GPU availability
-        gpu = check_gpu_info()
-        has_nvidia = gpu.get("available", False)
+        # Check GPU and encoder availability
+        from ..backend.hardware import detect_hw_encoders
+        hw = detect_hw_encoders()
 
         # Video Codec Preset Combo (Single control per setting)
         p_layout = QHBoxLayout()
         p_label = QLabel("Video Codec:", right_box)
         p_label.setFixedWidth(110)
         self.combo_preset = QComboBox(right_box)
-        self.combo_preset.addItem(f"H.264 NVENC (GPU){' [Default]' if has_nvidia else ''}", "nvenc")
-        self.combo_preset.addItem("H.265 NVENC (GPU)", "nvenc265")
-        self.combo_preset.addItem(f"H.264 (CPU){' [Default]' if not has_nvidia else ''}", "youtube")
-        self.combo_preset.addItem("H.265 (CPU)", "h265")
-        self.combo_preset.addItem("AV1", "av1")
-        self.combo_preset.addItem("ProRes 422", "prores")
-        self.combo_preset.addItem("VP9 (WebM)", "webm")
-        self.combo_preset.addItem("Archive (MKV)", "archive")
+
+        # Add hardware encoders dynamically
+        gpu_encoders = []
+        if hw["h264_nvenc"]:
+            gpu_encoders.append(("H.264 NVENC (GPU)", "nvenc"))
+        if hw["hevc_nvenc"]:
+            gpu_encoders.append(("H.265 NVENC (GPU)", "nvenc265"))
+        if hw["h264_amf"]:
+            gpu_encoders.append(("H.264 AMF (GPU)", "h264_amf"))
+        if hw["hevc_amf"]:
+            gpu_encoders.append(("H.265 AMF (GPU)", "hevc_amf"))
+        if hw["h264_qsv"]:
+            gpu_encoders.append(("H.264 QSV (GPU)", "h264_qsv"))
+        if hw["hevc_qsv"]:
+            gpu_encoders.append(("H.265 QSV (GPU)", "hevc_qsv"))
+        if hw["h264_vaapi"]:
+            gpu_encoders.append(("H.264 VAAPI (GPU)", "h264_vaapi"))
+        if hw["hevc_vaapi"]:
+            gpu_encoders.append(("H.265 VAAPI (GPU)", "hevc_vaapi"))
+        if hw["av1_nvenc"]:
+            gpu_encoders.append(("AV1 NVENC (GPU)", "av1_nvenc"))
+        if hw["av1_amf"]:
+            gpu_encoders.append(("AV1 AMF (GPU)", "av1_amf"))
+        if hw["av1_qsv"]:
+            gpu_encoders.append(("AV1 QSV (GPU)", "av1_qsv"))
+        if hw["av1_vaapi"]:
+            gpu_encoders.append(("AV1 VAAPI (GPU)", "av1_vaapi"))
+
+        # Add CPU encoders
+        cpu_encoders = [
+            ("H.264 (CPU)", "youtube"),
+            ("H.265 (CPU)", "h265"),
+            ("AV1 (CPU)", "av1"),
+            ("ProRes 422", "prores"),
+            ("VP9 (WebM)", "webm"),
+            ("Archive (MKV)", "archive")
+        ]
+
+        # Determine default
+        default_preset = None
+        if gpu_encoders:
+            default_preset = gpu_encoders[0][1]
+        else:
+            default_preset = "youtube"
+
+        # Populate combo box
+        for label, val in gpu_encoders:
+            suffix = " [Default]" if val == default_preset else ""
+            self.combo_preset.addItem(f"{label}{suffix}", val)
+
+        for label, val in cpu_encoders:
+            suffix = " [Default]" if val == default_preset else ""
+            self.combo_preset.addItem(f"{label}{suffix}", val)
+
         self.combo_preset.currentIndexChanged.connect(self._update_estimates)
 
-        if has_nvidia:
-            self.combo_preset.setCurrentIndex(0) # nvenc
-        else:
-            self.combo_preset.setCurrentIndex(2) # youtube
+        # Set index of default preset
+        for idx in range(self.combo_preset.count()):
+            if self.combo_preset.itemData(idx) == default_preset:
+                self.combo_preset.setCurrentIndex(idx)
+                break
 
         p_layout.addWidget(p_label)
         p_layout.addWidget(self.combo_preset, 1)

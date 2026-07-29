@@ -69,16 +69,17 @@ class LogPanel(QWidget):
         if not text:
             return
         clean_text = text.strip()
-        if "[ERR]" in clean_text or "Error" in clean_text or "Failed" in clean_text:
-            colored = f'<span style="color: #ff4757;">{clean_text}</span>'
-        elif "[OK]" in clean_text or "Done" in clean_text or "SUCCESS" in clean_text:
-            colored = f'<span style="color: #2ed573;">{clean_text}</span>'
-        elif "[WARN]" in clean_text:
-            colored = f'<span style="color: #ffa502;">{clean_text}</span>'
-        elif "[INFO]" in clean_text:
-            colored = f'<span style="color: #1e90ff;">{clean_text}</span>'
+        escaped = clean_text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        if "[ERR]" in escaped or "Error" in escaped or "Failed" in escaped:
+            colored = f'<span style="color: #ff4757;">{escaped}</span>'
+        elif "[OK]" in escaped or "Done" in escaped or "SUCCESS" in escaped:
+            colored = f'<span style="color: #2ed573;">{escaped}</span>'
+        elif "[WARN]" in escaped:
+            colored = f'<span style="color: #ffa502;">{escaped}</span>'
+        elif "[INFO]" in escaped:
+            colored = f'<span style="color: #1e90ff;">{escaped}</span>'
         else:
-            colored = f'<span style="color: #a0a5ba;">{clean_text}</span>'
+            colored = f'<span style="color: #a0a5ba;">{escaped}</span>'
 
         self.txt_logs.append(colored)
         self.txt_logs.moveCursor(QTextCursor.MoveOperation.End)

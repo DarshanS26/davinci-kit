@@ -17,8 +17,17 @@ set -euo pipefail
 # Resolve bundles glib 2.80.x; Arch has 2.88.x.
 # Preloading system libs forces Resolve to use the compatible newer versions.
 # Determine the correct lib paths for this architecture
-LIBDIR="/usr/lib"
-[[ "$(uname -m)" == "x86_64" ]] && [[ -d "/usr/lib64" ]] && LIBDIR="/usr/lib64"
+
+detect_lib_dir() {
+    for dir in /usr/lib/x86_64-linux-gnu /usr/lib64 /usr/lib; do
+        if [[ -f "$dir/libglib-2.0.so.0" ]]; then
+            echo "$dir"
+            return
+        fi
+    done
+    echo "/usr/lib"
+}
+LIBDIR="$(detect_lib_dir)"
 
 # Build LD_PRELOAD with system libraries that override Resolve's bundled ones
 PRELOAD_LIBS=(
@@ -46,20 +55,40 @@ if [[ ${#ACTUAL_PRELOAD[@]} -gt 0 ]]; then
   export LD_PRELOAD=$(IFS=:; echo "${ACTUAL_PRELOAD[*]}")
 fi
 
-# ── NVIDIA PRIME GPU offload ──────────────────────────────────────────────────
-# Hybrid laptop: RTX 3050 dGPU + Intel iGPU
-# Force Resolve to use NVIDIA for both OpenGL UI and CUDA compute
-export __NV_PRIME_RENDER_OFFLOAD=1
-export __GLX_VENDOR_LIBRARY_NAME=nvidia
-export __VK_LAYER_NV_optimus=NVIDIA_only
+# ── GPU Offload ───────────────────────────────────────────────────────────────
+# Detect GPU vendor
+GPU_VENDOR=""
+if command -v nvidia-smi &>/dev/null && nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | grep -q .; then
+    GPU_VENDOR="nvidia"
+elif lspci 2>/dev/null | grep -qi 'vga.*amd\|3d.*amd\|display.*amd'; then
+    GPU_VENDOR="amd"
+elif lspci 2>/dev/null | grep -qi 'vga.*intel\|display.*intel'; then
+    GPU_VENDOR="intel"
+fi
+
+PRIME_STATUS="skipped (non-NVIDIA system)"
+# Only set PRIME if NVIDIA discrete on hybrid system
+if [[ "$GPU_VENDOR" == "nvidia" ]]; then
+    # Check if hybrid (has more than one GPU)
+    CARD_COUNT=$(ls /dev/dri/card* 2>/dev/null | wc -l)
+    if [[ $CARD_COUNT -ge 2 ]]; then
+        export __NV_PRIME_RENDER_OFFLOAD=1
+        export __GLX_VENDOR_LIBRARY_NAME=nvidia
+        export __VK_LAYER_NV_optimus=NVIDIA_only
+        PRIME_STATUS="enabled (NVIDIA hybrid)"
+    else
+        PRIME_STATUS="skipped (single NVIDIA GPU)"
+    fi
+fi
 
 # ── Display scaling ───────────────────────────────────────────────────────────
 # Resolve's UI is tiny on HiDPI; scale to 125%
 #  Display scaling: DisplayScale=125 in config.user.xml handles internal UI.
 #  QT_SCALE_FACTOR must be 1.0 — it COMPOUNDS with DisplayScale.
 #  (1.25 * 125% = 1.56x which is too big; 1.0 * 125% = clean 1.25x)
-export QT_AUTO_SCREEN_SCALE_FACTOR=1
-export QT_SCALE_FACTOR=1.0
+#  Only set display factors if not already defined
+export QT_AUTO_SCREEN_SCALE_FACTOR=${QT_AUTO_SCREEN_SCALE_FACTOR:-1}
+export QT_SCALE_FACTOR=${QT_SCALE_FACTOR:-1.0}
 
 # ── libc++ fix for Resolve 21+ ───────────────────────────────────────────────
 # Resolve 21+ bundles its own libc++.so.1 that can conflict with the system's
@@ -77,14 +106,22 @@ fi
 # ── Wayland / X11 compatibility ────────────────────────────────────────────────
 # Resolve does not support Wayland natively and crashes with:
 #   qt.qpa.plugin: Could not find the Qt platform plugin "wayland"
-# Force X11 backend via XCB
-export QT_QPA_PLATFORM=xcb
+# Only force xcb if Wayland is detected and XWayland exists
+WAYLAND_STATUS="default"
+if [[ "${XDG_SESSION_TYPE:-}" == "wayland" ]] || [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+    if command -v Xwayland &>/dev/null || [[ -d /usr/lib/xorg ]]; then
+        export QT_QPA_PLATFORM=xcb
+        WAYLAND_STATUS="xcb (Wayland detected, forcing X11)"
+    else
+        WAYLAND_STATUS="default (Wayland-only, no XWayland)"
+    fi
+fi
 
 # ── Launch Resolve ───────────────────────────────────────────────────────────
 echo "resolve-fix: Launching DaVinci Resolve with:" >&2
 echo "  LD_PRELOAD = ${LD_PRELOAD:-none}" >&2
-echo "  PRIME offload = enabled (NVIDIA RTX 3050)" >&2
-echo "  QT_QPA_PLATFORM = xcb (forced X11)" >&2
-echo "  QT_SCALE_FACTOR = 1.0 (don't compound with DisplayScale)" >&2
+echo "  PRIME offload = $PRIME_STATUS" >&2
+echo "  QT_QPA_PLATFORM = ${QT_QPA_PLATFORM:-$WAYLAND_STATUS}" >&2
+echo "  QT_SCALE_FACTOR = $QT_SCALE_FACTOR (don't compound with DisplayScale)" >&2
 
 exec /opt/resolve/bin/resolve "$@"

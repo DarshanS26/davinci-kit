@@ -102,11 +102,11 @@ class TopBar(QWidget):
         # GPU Info
         gpu = results["gpu"]
         if gpu["available"]:
-            self.lbl_gpu.setText(f"🟢 GPU: {gpu['gpu_name']}")
-            self.lbl_gpu.setToolTip(f"NVIDIA Driver: {gpu['driver']}\nTotal VRAM: {gpu['vram_total']}")
+            self.lbl_gpu.setText(f"🟢 GPU: {gpu['model']}")
+            self.lbl_gpu.setToolTip(f"Vendor: {gpu['vendor']}\nDriver: {gpu['driver']}\nVRAM: {gpu['vram_used']}/{gpu['vram_total']}")
         else:
-            self.lbl_gpu.setText("🟡 GPU: Software / Integrated")
-            self.lbl_gpu.setToolTip("No NVIDIA GPU detected via nvidia-smi")
+            self.lbl_gpu.setText("⚪ GPU: Not detected")
+            self.lbl_gpu.setToolTip("No GPU detected")
 
         # Disk Info
         disk = results["disk"]

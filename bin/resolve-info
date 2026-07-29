@@ -63,13 +63,16 @@ if [[ -d /opt/resolve ]]; then
   else
     optional "No IOEncoder plugins installed (requires Studio)"
   fi
-  # Check if from AUR
-  if pacman -Q davinci-resolve &>/dev/null; then
-    ok "AUR package: $(pacman -Q davinci-resolve)"
-  elif pacman -Q davinci-resolve-studio &>/dev/null; then
-    ok "AUR package (Studio): $(pacman -Q davinci-resolve-studio)"
-  else
-    info "Not installed via AUR (manual install)"
+
+  # Check package installation style (Arch specific AUR check)
+  if command -v pacman &>/dev/null; then
+    if pacman -Q davinci-resolve &>/dev/null; then
+      ok "AUR package: $(pacman -Q davinci-resolve)"
+    elif pacman -Q davinci-resolve-studio &>/dev/null; then
+      ok "AUR package (Studio): $(pacman -Q davinci-resolve-studio)"
+    else
+      info "Not installed via AUR (manual install)"
+    fi
   fi
 else
   blocker "Resolve not found at /opt/resolve"
@@ -78,14 +81,27 @@ fi
 # ── GPU & OpenCL ─────────────────────────────────────────────────────────────
 section "GPU & OpenCL"
 
-if command -v nvidia-smi &>/dev/null; then
+GPU_VENDOR=""
+if command -v nvidia-smi &>/dev/null && nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | grep -q .; then
+  GPU_VENDOR="nvidia"
   gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
   gpu_mem=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader 2>/dev/null | head -1)
   gpu_driver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)
   ok "NVIDIA GPU: ${gpu_name:-unknown}, ${gpu_mem:-?} VRAM"
   info "Driver: ${gpu_driver:-unknown}"
+elif command -v lspci &>/dev/null; then
+  gpu_line=$(lspci 2>/dev/null | grep -iE 'vga|3d|display' | head -1)
+  if echo "$gpu_line" | grep -qi 'amd'; then
+    GPU_VENDOR="amd"
+    ok "AMD GPU detected: $gpu_line"
+  elif echo "$gpu_line" | grep -qi 'intel'; then
+    GPU_VENDOR="intel"
+    ok "Intel GPU detected: $gpu_line"
+  else
+    info "GPU detected: $gpu_line"
+  fi
 else
-  info "nvidia-smi not found — no NVIDIA GPU or driver detected (optional for AMD/Intel)"
+  info "No GPU detection method available (nvidia-smi and lspci not found)"
 fi
 
 if command -v clinfo &>/dev/null; then
@@ -110,23 +126,37 @@ fi
 # ── PRIME / Hybrid GPU ───────────────────────────────────────────────────────
 section "GPU Offload (PRIME)"
 
+# Detect device vendors
+has_nvidia_dgpu=0
+has_amd_dgpu=0
+for vendor_file in /sys/class/drm/card*/device/vendor; do
+  if [[ -f "$vendor_file" ]]; then
+    vid=$(cat "$vendor_file" 2>/dev/null)
+    if [[ "$vid" == "0x10de" ]]; then
+      has_nvidia_dgpu=1
+    elif [[ "$vid" == "0x1002" ]]; then
+      has_amd_dgpu=1
+    fi
+  fi
+done
+
+card_count=$(ls /dev/dri/card* 2>/dev/null | wc -l)
 has_hybrid=0
-if command -v envycontrol &>/dev/null; then
+if [[ $card_count -ge 2 ]]; then
   has_hybrid=1
+fi
+
+if command -v envycontrol &>/dev/null; then
   info "Current GPU mode: $(envycontrol --query 2>/dev/null || echo 'unknown')"
 fi
 
-if ls /dev/dri/card* 2>/dev/null | wc -l | grep -q '[2-9]'; then
-  has_hybrid=1
-fi
-
 resolve_fix_exists=0
-if [[ -f "$HOME/.local/bin/resolve-fix" ]] || [[ -L "$HOME/.local/bin/resolve-fix" ]]; then
+if [[ -f "$HOME/.local/bin/resolve-fix" ]] || [[ -L "$HOME/.local/bin/resolve-fix" ]] || [[ -f "/usr/bin/resolve-fix" ]]; then
   resolve_fix_exists=1
   ok "resolve-fix launcher exists"
 else
   if [[ $has_hybrid -eq 1 ]]; then
-    workaround "resolve-fix launcher not found (needed on hybrid GPU setups to offload to NVIDIA)"
+    workaround "resolve-fix launcher not found (needed on hybrid GPU setups to offload to PRIME)"
   else
     optional "resolve-fix launcher not found (optional workaround helper)"
   fi
@@ -145,14 +175,39 @@ fi
 # ── Library Mismatch ──────────────────────────────────────────────────────────
 section "Library Compatibility"
 
+detect_lib_dir() {
+    for dir in /usr/lib/x86_64-linux-gnu /usr/lib64 /usr/lib; do
+        if [[ -f "$dir/libglib-2.0.so.0" ]]; then
+            echo "$dir"
+            return
+        fi
+    done
+    echo "/usr/lib"
+}
+LIBDIR="$(detect_lib_dir)"
+
+# Compare two version strings numerically (e.g. 2.88.0 > 2.80.0)
+version_gt() {
+  # Returns 0 (true) if $1 > $2 numerically by component
+  local IFS=.
+  read -ra a <<< "$1"
+  read -ra b <<< "$2"
+  for i in "${!a[@]}"; do
+    local av="${a[$i]:-0}" bv="${b[$i]:-0}"
+    if (( av > bv )); then return 0; fi
+    if (( av < bv )); then return 1; fi
+  done
+  return 1
+}
+
 glib_mismatch=0
 for lib in libglib-2.0.so.0 libgio-2.0.so.0 libgmodule-2.0.so.0 libgobject-2.0.so.0; do
-  sys_ver=$(readlink /usr/lib/$lib 2>/dev/null || echo "missing")
+  sys_ver=$(readlink "$LIBDIR/$lib" 2>/dev/null || echo "missing")
   res_ver=$(readlink /opt/resolve/libs/$lib 2>/dev/null || echo "missing")
   if [[ "$sys_ver" != "missing" ]] && [[ "$res_ver" != "missing" ]]; then
     sys_num=$(echo "$sys_ver" | grep -oP '\d+\.\d+\.\d+' | head -1)
     res_num=$(echo "$res_ver" | grep -oP '\d+\.\d+\.\d+' | head -1)
-    if [[ "$sys_num" > "$res_num" ]]; then
+    if version_gt "$sys_num" "$res_num"; then
       glib_mismatch=1
       info "$lib: system=$sys_ver > bundled=$res_ver (mismatch)"
     fi
@@ -174,15 +229,25 @@ section "FFmpeg Codecs"
 
 if command -v ffmpeg &>/dev/null; then
   ok "ffmpeg: $(ffmpeg -hide_banner -version 2>/dev/null | head -1 || echo 'installed')"
-  # Check key encoders (ffmpeg output format: " VFS..D codecname  description")
+  
   encoders=$(ffmpeg -hide_banner -encoders 2>/dev/null || true)
-  for codec in "dnxhd" "libx264" "libx265" "libsvtav1" "aac" "pcm_s24le" "alac" "libvpx-vp9" "libopus" "flac" "h264_nvenc" "hevc_nvenc"; do
+  
+  # Check standard software encoders
+  for codec in "dnxhd" "libx264" "libx265" "libsvtav1" "aac" "pcm_s24le" "alac" "libvpx-vp9" "libopus" "flac"; do
     if echo "$encoders" | grep -qE "[[:space:]]+${codec}[[:space:]]+"; then
       ok "Encoder available: $codec"
     else
       optional "Encoder missing: $codec"
     fi
   done
+  
+  # Check hardware encoders (only print if available)
+  for codec in h264_nvenc hevc_nvenc av1_nvenc h264_amf hevc_amf av1_amf h264_qsv hevc_qsv av1_qsv h264_vaapi hevc_vaapi av1_vaapi; do
+    if echo "$encoders" | grep -qE "[[:space:]]+${codec}[[:space:]]+"; then
+      ok "HW encoder available: $codec"
+    fi
+  done
+
   # Check key decoders
   decoders=$(ffmpeg -hide_banner -decoders 2>/dev/null || true)
   for codec in "h264" "hevc" "dnxhd" "av1" "vp9" "vp8" "opus" "aac" "flac" "alac" "pcm_s16le" "theora" "wmv" "mpeg2video" "mpeg4" "dvvideo"; do
@@ -203,58 +268,62 @@ fi
 # ── Disk Space ────────────────────────────────────────────────────────────────
 section "Disk Space"
 
-home_free=$(df -h /home 2>/dev/null | tail -1 | awk '{print $4}')
-home_pct=$(df -h /home 2>/dev/null | tail -1 | awk '{print $5}')
-info "/home: ${home_free} free (${home_pct} used)"
-
-root_free=$(df -h / 2>/dev/null | tail -1 | awk '{print $4}')
-ok "/ (root): ${root_free} free"
-
-info "DNxHR HQ ≈ 660 Mbps ≈ 82 MB/s ≈ 5 GB/min of video"
-info "Plan disk space accordingly for transcodes"
-
-# ── Font Paths ────────────────────────────────────────────────────────────────
-section "Font Configuration"
-
-config_file="$HOME/.local/share/DaVinciResolve/configs/config.user.xml"
-if [[ -f "$config_file" ]]; then
-  font_path=$(grep -oP 'FontsPath[^>]*value="[^"]*"' "$config_file" 2>/dev/null | head -1 || echo "")
-  if [[ -n "$font_path" ]]; then
-    if echo "$font_path" | grep -q "$HOME/.local/share/fonts"; then
-      ok "User fonts in Fusion path"
-    else
-      optional "User fonts are not mapped. Run resolve-fonts only if fonts are missing in Fusion/Text."
-    fi
-    info "$font_path"
+free_space_kb=$(df -k "$HOME" 2>/dev/null | awk 'NR==2 {print $4}')
+if [[ -n "$free_space_kb" ]]; then
+  free_gb=$((free_space_kb / 1024 / 1024))
+  if [[ $free_gb -gt 20 ]]; then
+    ok "Storage space: ${free_gb} GB free"
+  elif [[ $free_gb -gt 5 ]]; then
+    workaround "Storage space low: ${free_gb} GB free"
   else
-    optional "User fonts are not mapped. Run resolve-fonts only if fonts are missing in Fusion/Text."
+    blocker "Storage space critical: ${free_gb} GB free"
   fi
 else
-  optional "User fonts are not mapped (Resolve config not found). Run resolve-fonts only if fonts are missing in Fusion/Text."
+  info "Could not determine free disk space"
 fi
 
-user_font_count=$(find "$HOME/.local/share/fonts" "$HOME/.fonts" -name "*.ttf" -o -name "*.otf" 2>/dev/null | wc -l)
-info "User fonts found: $user_font_count"
+# ── Font Configuration ────────────────────────────────────────────────────────
+section "Font Configuration"
 
-# ── Scripts & Tools ──────────────────────────────────────────────────────────
+fontconfig_found=0
+sys_fonts_dir="/usr/share/fonts"
+user_fonts_dir="$HOME/.local/share/fonts"
+user_fonts_deprecated="$HOME/.fonts"
+
+# Check standard system font configs
+if [[ -d "/etc/fonts" ]]; then
+  ok "Fontconfig installed"
+  fontconfig_found=1
+fi
+
+if [[ -d "$sys_fonts_dir" ]]; then
+  ok "System fonts path exists: $sys_fonts_dir"
+fi
+
+if [[ -d "$user_fonts_dir" ]]; then
+  ok "User local fonts path exists: $user_fonts_dir"
+else
+  optional "User fonts directory not found (~/.local/share/fonts)"
+  info "  Create this folder to install custom fonts"
+fi
+
+if [[ -d "$user_fonts_deprecated" ]]; then
+  info "Deprecated user fonts folder exists: ~/.fonts (legacy support)"
+fi
+
+# ── Resolve Toolkit ──────────────────────────────────────────────────────────
 section "Resolve Toolkit"
 
-for tool in resolve-transcode resolve-audio resolve-export resolve-fix resolve-backup resolve-fonts resolve-watch resolve-info resolve-gui; do
-  if command -v "$tool" &>/dev/null; then
-    ok "$tool"
-  else
-    optional "$tool — not found on PATH"
-  fi
-done
+ok "resolve-transcode CLI binary: $(command -v resolve-transcode || echo 'not in PATH')"
+ok "resolve-export CLI binary: $(command -v resolve-export || echo 'not in PATH')"
+ok "resolve-watch CLI binary: $(command -v resolve-watch || echo 'not in PATH')"
 
-# ── Quick Tips ────────────────────────────────────────────────────────────────
+# ── Quick Reference ──────────────────────────────────────────────────────────
 section "Quick Reference"
 
-echo -e "  ${BOLD}Transcode footage for Resolve:${RESET}"
-echo    "    resolve-transcode /path/to/footage              # DNxHR HQ (default)"
-echo    "    resolve-transcode -c av1 /path/to/footage        # AV1 (4-5x smaller)"
-echo    "    resolve-transcode -c av1 -q hq /path/to/raw      # AV1 high quality"
-echo    "    resolve-transcode -c av1 -q lb -j 4 /path/to/raw  # AV1 proxy, 4 parallel"
+echo -e "  ${BOLD}Transcode raw video for editing:${RESET}"
+echo    "    resolve-transcode /path/to/raw                  # DNxHR SQ standard profile"
+echo    "    resolve-transcode -c av1 /path/to/raw           # AV1 compression profile"
 echo    "    resolve-transcode -q hqx -j 4 /path/to/raw      # DNxHR 12-bit, 4 parallel"
 echo
 echo -e "  ${BOLD}Export from Resolve for delivery:${RESET}"

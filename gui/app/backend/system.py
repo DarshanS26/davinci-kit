@@ -22,25 +22,9 @@ def get_bin_path(tool_name: str) -> str:
     return sys_path or tool_name
 
 def check_gpu_info() -> dict:
-    """Queries NVIDIA GPU information via nvidia-smi if available."""
-    info = {"gpu_name": "Unknown GPU", "vram_total": "N/A", "vram_used": "N/A", "driver": "N/A", "available": False}
-    if shutil.which("nvidia-smi"):
-        try:
-            res = subprocess.run(
-                ["nvidia-smi", "--query-gpu=name,memory.total,memory.used,driver_version", "--format=csv,noheader,nounits"],
-                capture_output=True, text=True, timeout=3
-            )
-            if res.returncode == 0 and res.stdout.strip():
-                parts = [p.strip() for p in res.stdout.strip().split(",")]
-                if len(parts) >= 4:
-                    info["gpu_name"] = parts[0]
-                    info["vram_total"] = f"{parts[1]} MB"
-                    info["vram_used"] = f"{parts[2]} MB"
-                    info["driver"] = parts[3]
-                    info["available"] = True
-        except Exception:
-            pass
-    return info
+    """Queries GPU information via hardware detection backend."""
+    from . import hardware
+    return hardware.detect_gpu()
 
 def check_opencl_info() -> dict:
     """Checks OpenCL platforms using clinfo or fallback."""
@@ -59,10 +43,11 @@ def check_opencl_info() -> dict:
 
 def check_glib_mismatches() -> dict:
     """Checks for system vs DaVinci Resolve GLib library mismatches."""
+    from . import hardware
     libs = ["libglib-2.0.so.0", "libgio-2.0.so.0", "libgmodule-2.0.so.0", "libgobject-2.0.so.0"]
     mismatches = []
     resolve_lib_dir = Path("/opt/resolve/libs")
-    sys_lib_dir = Path("/usr/lib")
+    sys_lib_dir = Path(hardware.detect_lib_dir())
 
     if not resolve_lib_dir.exists():
         return {"resolve_installed": False, "count": 0, "details": []}

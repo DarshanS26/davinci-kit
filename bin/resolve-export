@@ -6,7 +6,7 @@
 #  compressed formats suitable for YouTube, social media, or archival.
 #
 #  Supports CPU encoding (libx264, libx265, SVT-AV1, VP9) and GPU encoding
-#  (NVENC H.264/H.265/AV1 on NVIDIA GPUs).
+#  (NVENC, AMF, QSV, VAAPI).
 #
 #  Usage:
 #    resolve-export [OPTIONS] <input.mov> [input2.mov ...]
@@ -46,18 +46,28 @@ ${BOLD}resolve-export${RESET} — Convert Resolve exports to delivery formats
     $0 [OPTIONS] <directory>
 
   ${BOLD}PRESETS${RESET}
-    youtube    H.264 1080p, CRF 18, AAC 192k         [DEFAULT]
-    youtube4k  H.264 4K, CRF 20, AAC 192k
-    h265       H.265 1080p, CRF 22, AAC 192k (smaller)
-    h2654k     H.265 4K, CRF 24, AAC 192k
-    nvenc      H.264 NVENC GPU encode, HQ, AAC 192k (fast on NVIDIA)
-    nvenc265   H.265 NVENC GPU encode, HQ, AAC 192k (fast on NVIDIA)
-    av1        SVT-AV1 1080p, CRF 30, Opus 128k (smallest file)
-    av14k      SVT-AV1 4K, CRF 32, Opus 128k (smallest 4K)
-    prores     ProRes 422 HQ .mov (for further editing)
-    webm       VP9 1080p, CRF 30, Opus 128k (web embedding)
-    archive    H.264, CRF 15, FLAC audio (near-lossless archive)
-    custom     Use -cv and -ca to specify codecs manually
+    youtube      H.264 1080p, CRF 18, AAC 192k         [DEFAULT]
+    youtube4k    H.264 4K, CRF 20, AAC 192k
+    h265         H.265 1080p, CRF 22, AAC 192k (smaller)
+    h2654k       H.265 4K, CRF 24, AAC 192k
+    nvenc        H.264 NVENC GPU encode, HQ, AAC 192k (NVIDIA)
+    nvenc265     H.265 NVENC GPU encode, HQ, AAC 192k (NVIDIA)
+    h264_amf     H.264 AMF GPU encode (AMD)
+    hevc_amf     H.265 AMF GPU encode (AMD)
+    h264_qsv     H.264 QSV GPU encode (Intel)
+    hevc_qsv     H.265 QSV GPU encode (Intel)
+    h264_vaapi   H.264 VAAPI GPU encode (AMD/Intel)
+    hevc_vaapi   H.265 VAAPI GPU encode (AMD/Intel)
+    av1          SVT-AV1 1080p, CRF 30, Opus 128k (smallest file)
+    av14k        SVT-AV1 4K, CRF 32, Opus 128k (smallest 4K)
+    av1_nvenc    AV1 NVENC GPU encode (NVIDIA RTX 40+)
+    av1_amf      AV1 AMF GPU encode (AMD RX 7000+)
+    av1_qsv      AV1 QSV GPU encode (Intel Arc)
+    av1_vaapi    AV1 VAAPI GPU encode (AMD/Intel)
+    prores       ProRes 422 HQ .mov (for further editing)
+    webm         VP9 1080p, CRF 30, Opus 128k (web embedding)
+    archive      H.264, CRF 15, FLAC audio (near-lossless archive)
+    custom       Use -cv and -ca to specify codecs manually
 
   ${BOLD}OPTIONS${RESET}
     -p PRESET    Delivery preset (default: youtube)
@@ -98,7 +108,6 @@ get_scale_args() {
     1440p) echo "-vf scale=2560:1440:force_original_aspect_ratio=decrease,pad=2560:1440:(ow-iw)/2:(oh-ih)/2" ;;
     4k)    echo "-vf scale=3840:2160:force_original_aspect_ratio=decrease,pad=3840:2160:(ow-iw)/2:(oh-ih)/2" ;;
     ""|original) echo "" ;;
-    *) error "Invalid resolution: $1. Use 480p|720p|1080p|1440p|4k|original"; exit 1 ;;
   esac
 }
 
@@ -123,6 +132,36 @@ get_preset_args() {
       ;;
     nvenc265)
       echo "hevc_nvenc|-preset p6 -tune hq -rc vbr -cq 24 -b:a 0 -pix_fmt yuv420p -movflags +faststart|aac|-b:a 192k -ar 48000|mp4"
+      ;;
+    h264_amf)
+      echo "h264_amf|-preset quality -rc cqp -qp_i 20 -qp_p 20 -qp_b 20 -b:a 0 -pix_fmt yuv420p -movflags +faststart|aac|-b:a 192k -ar 48000|mp4"
+      ;;
+    hevc_amf)
+      echo "hevc_amf|-preset quality -rc cqp -qp_i 22 -qp_p 22 -qp_b 22 -b:a 0 -pix_fmt yuv420p -movflags +faststart|aac|-b:a 192k -ar 48000|mp4"
+      ;;
+    h264_qsv)
+      echo "h264_qsv|-preset medium -global_quality 20 -look_ahead 0 -pix_fmt yuv420p -movflags +faststart|aac|-b:a 192k -ar 48000|mp4"
+      ;;
+    hevc_qsv)
+      echo "hevc_qsv|-preset medium -global_quality 22 -look_ahead 0 -pix_fmt yuv420p -movflags +faststart|aac|-b:a 192k -ar 48000|mp4"
+      ;;
+    h264_vaapi)
+      echo "h264_vaapi|-qp 20 -pix_fmt yuv420p -movflags +faststart|aac|-b:a 192k -ar 48000|mp4"
+      ;;
+    hevc_vaapi)
+      echo "hevc_vaapi|-qp 22 -pix_fmt yuv420p -movflags +faststart|aac|-b:a 192k -ar 48000|mp4"
+      ;;
+    av1_nvenc)
+      echo "av1_nvenc|-preset p6 -tune hq -rc vbr -cq 26 -b:a 0 -pix_fmt yuv420p -movflags +faststart|libopus|-b:a 128k -ar 48000|mp4"
+      ;;
+    av1_amf)
+      echo "av1_amf|-preset quality -rc cqp -qp_i 26 -qp_p 26 -qp_b 26 -b:a 0 -pix_fmt yuv420p -movflags +faststart|libopus|-b:a 128k -ar 48000|mp4"
+      ;;
+    av1_qsv)
+      echo "av1_qsv|-preset medium -global_quality 26 -look_ahead 0 -pix_fmt yuv420p -movflags +faststart|libopus|-b:a 128k -ar 48000|mp4"
+      ;;
+    av1_vaapi)
+      echo "av1_vaapi|-qp 26 -pix_fmt yuv420p -movflags +faststart|libopus|-b:a 128k -ar 48000|mp4"
       ;;
     prores)
       echo "prores_ks|-profile:v 3 -pix_fmt yuv422p10le|pcm_s24le|-ar 48000|mov"
@@ -198,12 +237,9 @@ process_file() {
   local out_file="${out_dir}/$(basename "$base").delivery.${output_ext}"
 
   if [[ -f "$out_file" ]]; then
-    warn "Skipping (exists): $out_file"
+    warn "Output file already exists, skipping: $out_file"
     return 0
   fi
-
-  local res_label="${RESOLUTION:-original}"
-  info "${BOLD}$(basename "$input")${RESET} → $(basename "$out_file")  [$PRESET, ${res_label}]"
 
   if $DRY_RUN; then
     echo "  ffmpeg -i \"$input\" $scale_args -c:v $vcodec $vparams -c:a $acodec $aparams \"$out_file\""
@@ -264,24 +300,43 @@ if [[ "$PRESET" != "custom" ]]; then
   get_preset_args "$PRESET" &>/dev/null || exit 1
 fi
 
-# Check encoder availability (capture to variable to avoid pipefail+SIGPIPE issues)
+# Check encoder availability
 _enc_list="$(ffmpeg -hide_banner -encoders 2>&1 || true)"
-
-# Check for NVENC availability if using nvenc presets
-if [[ "$PRESET" == "nvenc" || "$PRESET" == "nvenc265" ]]; then
-  if ! echo "$_enc_list" | grep -qE 'h264_nvenc|hevc_nvenc'; then
-    error "NVENC encoder not available. Install NVIDIA drivers: sudo pacman -S nvidia-utils"
-    exit 1
+AVAILABLE_ENCODERS=""
+for enc in h264_nvenc hevc_nvenc av1_nvenc h264_amf hevc_amf av1_amf h264_qsv hevc_qsv av1_qsv h264_vaapi hevc_vaapi av1_vaapi libsvtav1; do
+  if echo "$_enc_list" | grep -qE "[[:space:]]+${enc}[[:space:]]+"; then
+    AVAILABLE_ENCODERS="$AVAILABLE_ENCODERS $enc"
   fi
-fi
+done
 
-# Check for SVT-AV1 if using av1 presets
-if [[ "$PRESET" == "av1" || "$PRESET" == "av14k" ]]; then
-  if ! echo "$_enc_list" | grep -q 'libsvtav1'; then
-    error "SVT-AV1 encoder not found. Install: sudo pacman -S svt-av1"
-    exit 1
+# If using a specific hardware encoder preset, verify it is available
+check_hardware_encoder() {
+  local preset="$1"
+  local required_enc=""
+  case "$preset" in
+    nvenc)      required_enc="h264_nvenc" ;;
+    nvenc265)   required_enc="hevc_nvenc" ;;
+    av1_nvenc)  required_enc="av1_nvenc" ;;
+    h264_amf)   required_enc="h264_amf" ;;
+    hevc_amf)   required_enc="hevc_amf" ;;
+    av1_amf)    required_enc="av1_amf" ;;
+    h264_qsv)   required_enc="h264_qsv" ;;
+    hevc_qsv)   required_enc="hevc_qsv" ;;
+    av1_qsv)    required_enc="av1_qsv" ;;
+    h264_vaapi) required_enc="h264_vaapi" ;;
+    hevc_vaapi) required_enc="hevc_vaapi" ;;
+    av1_vaapi)  required_enc="av1_vaapi" ;;
+    av1|av14k)  required_enc="libsvtav1" ;;
+  esac
+
+  if [[ -n "$required_enc" ]]; then
+    if ! echo "$AVAILABLE_ENCODERS" | grep -q "$required_enc"; then
+      error "Encoder '$required_enc' for preset '$preset' is not available in system ffmpeg."
+      exit 1
+    fi
   fi
-fi
+}
+check_hardware_encoder "$PRESET"
 
 # Expand directory arguments into files
 FILES=()
@@ -299,16 +354,6 @@ for arg in "$@"; do
     FILES+=("$arg")
   fi
 done
-
-if [[ ${#FILES[@]} -eq 0 ]]; then
-  error "No video files found"
-  exit 1
-fi
-
-info "Preset: $PRESET  |  Files: ${#FILES[@]}  |  Output: ${OUTPUT_DIR:-same as input}"
-[[ -n "$RESOLUTION" ]] && info "Resolution: $RESOLUTION"
-[[ -n "$CRF_OVERRIDE" ]] && info "CRF override: $CRF_OVERRIDE"
-echo
 
 # Export for parallel
 export -f process_file get_preset_args get_scale_args info success warn error

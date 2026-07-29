@@ -5,7 +5,7 @@ try:
     from PyQt6.QtWidgets import (
         QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
         QListWidget, QListWidgetItem, QCheckBox, QFrame, QMenu,
-        QAbstractItemView, QSizePolicy, QApplication
+        QAbstractItemView, QSizePolicy, QApplication, QMessageBox
     )
     from PyQt6.QtCore import Qt, pyqtSignal, QSize, QUrl, QThread
     from PyQt6.QtGui import QAction, QCursor, QDesktopServices, QFontMetrics
@@ -13,13 +13,23 @@ except ImportError:
     from PySide6.QtWidgets import (
         QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
         QListWidget, QListWidgetItem, QCheckBox, QFrame, QMenu,
-        QAbstractItemView, QSizePolicy, QApplication
+        QAbstractItemView, QSizePolicy, QApplication, QMessageBox
     )
     from PySide6.QtCore import Qt, Signal as pyqtSignal, QSize, QUrl, QThread
     from PySide6.QtGui import QAction, QCursor, QDesktopServices, QFontMetrics
 
 from ..backend.inspector import get_file_info, format_size
 from ..components.drop_zone import DropZone
+
+SUPPORTED_EXTENSIONS = {
+    # Video
+    "mp4", "mkv", "avi", "mov", "mxf", "wmv", "flv", "webm", "ts", "m2ts", "mts", 
+    "mpg", "mpeg", "m4v", "3gp", "ogv", "vob", "rmvb", "rm", "asf", "divx", "dv", 
+    "f4v", "hevc", "h264", "h265",
+    # Audio
+    "mp3", "aac", "flac", "ogg", "m4a", "wma", "aiff", "aif", "opus", "wav", 
+    "ape", "alac", "mka", "ac3", "dts", "eac3", "amr", "au", "ra"
+}
 
 class ProbeWorker(QThread):
     file_ready = pyqtSignal(dict)
@@ -44,18 +54,23 @@ class ProbeWorker(QThread):
 
 class ElidedLabel(QLabel):
     def __init__(self, text="", parent=None):
-        super().__init__(text, parent)
+        super().__init__(parent)
         self._raw_text = text
+        self.setMinimumWidth(10)
+        self.setText(text)
 
     def setText(self, text):
         self._raw_text = text
-        super().setText(text)
+        self._update_elided()
 
-    def paintEvent(self, event):
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_elided()
+
+    def _update_elided(self):
         metrics = QFontMetrics(self.font())
-        elided = metrics.elidedText(self._raw_text, Qt.TextElideMode.ElideMiddle, max(10, self.width()))
+        elided = metrics.elidedText(self._raw_text, Qt.TextElideMode.ElideMiddle, max(10, self.width() - 4))
         super().setText(elided)
-        super().paintEvent(event)
 
 class FileQueueItemWidget(QWidget):
     toggled = pyqtSignal(str, bool)
@@ -216,7 +231,9 @@ class FileQueue(QFrame):
             elif os.path.isdir(p):
                 for root, _, files in os.walk(p):
                     for f in sorted(files):
-                        file_list.append(os.path.join(root, f))
+                        ext = f.split(".")[-1].lower() if "." in f else ""
+                        if ext in SUPPORTED_EXTENSIONS:
+                            file_list.append(os.path.join(root, f))
 
         existing_paths = {m["path"] for m in self.selected_files_meta}
         files_to_probe = [f for f in file_list if f not in existing_paths]
@@ -271,6 +288,17 @@ class FileQueue(QFrame):
                 break
 
     def clear_all(self):
+        count = len(self.selected_files_meta)
+        if count > 1:
+            reply = QMessageBox.question(
+                self,
+                "Clear Queue",
+                f"Remove all {count} files from the queue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
         # Stop any active probe workers
         self._accepting_files = False
         for worker in self._active_workers:

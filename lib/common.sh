@@ -176,11 +176,21 @@ rk_get_resolve_version() {
   fi
 }
 
-rk_get_nvidia_gpu() {
-  if command -v nvidia-smi &>/dev/null; then
-    nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null | head -1 || echo "unknown"
+rk_get_gpu() {
+  if command -v nvidia-smi &>/dev/null && nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | grep -q .; then
+    echo "nvidia:$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)"
+  elif command -v lspci &>/dev/null; then
+    local line
+    line=$(lspci 2>/dev/null | grep -iE 'vga|3d|display' | head -1)
+    if echo "$line" | grep -qi amd; then
+      echo "amd:$line"
+    elif echo "$line" | grep -qi intel; then
+      echo "intel:$line"
+    else
+      echo "unknown:$line"
+    fi
   else
-    echo "no nvidia"
+    echo "unknown:Not detected"
   fi
 }
 
@@ -192,11 +202,23 @@ rk_get_opencl_info() {
   fi
 }
 
+rk_detect_lib_dir() {
+  for dir in /usr/lib/x86_64-linux-gnu /usr/lib64 /usr/lib; do
+    if [[ -f "$dir/libglib-2.0.so.0" ]]; then
+      echo "$dir"
+      return
+    fi
+  done
+  echo "/usr/lib"
+}
+
 rk_check_library_mismatch() {
+  local libdir
+  libdir="$(rk_detect_lib_dir)"
   local mismatches=0
   for lib in libglib-2.0.so.0 libgio-2.0.so.0 libgmodule-2.0.so.0 libgobject-2.0.so.0; do
     local sys_ver res_ver
-    sys_ver=$(readlink /usr/lib/$lib 2>/dev/null || echo "missing")
+    sys_ver=$(readlink "$libdir/$lib" 2>/dev/null || echo "missing")
     res_ver=$(readlink /opt/resolve/libs/$lib 2>/dev/null || echo "missing")
     if [[ "$sys_ver" != "missing" ]] && [[ "$res_ver" != "missing" ]]; then
       local sys_num res_num

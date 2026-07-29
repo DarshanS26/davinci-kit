@@ -43,9 +43,6 @@
   },
 
   "system": {
-    "gpu": "NVIDIA GeForce RTX 3050 Laptop GPU",
-    "gpu_memory": "4096 MiB",
-    "opencl_platform": "NVIDIA CUDA",
-    "launch_method": "PRIME offload"
+    "_comment": "Detected at runtime, not stored here"
   }
 }

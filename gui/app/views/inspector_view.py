@@ -73,19 +73,22 @@ class InspectorView(QWidget):
         main_layout.addWidget(splitter)
 
     def _on_queue_changed(self):
-        meta_list = self.file_queue.get_selected_metadata()
-        if meta_list and self.file_queue.list_widget.count() > 0:
+        if self.file_queue.list_widget.count() == 0:
+            self.clear_inspection()
+        else:
             if not self.file_queue.list_widget.currentItem():
                 self.file_queue.list_widget.setCurrentRow(0)
-        else:
-            self.clear_inspection()
 
     def _on_item_changed(self, current: QListWidgetItem, previous: QListWidgetItem):
+        if current is None:
+            return
         row = self.file_queue.list_widget.row(current)
-        meta_list = self.file_queue.get_selected_metadata()
+        # Use get_all_metadata so row index always matches the list widget rows
+        meta_list = self.file_queue.get_all_metadata()
         if 0 <= row < len(meta_list):
-            file_path = meta_list[row]["path"]
-            self.inspect_file(file_path)
+            self.inspect_file(meta_list[row]["path"])
+        else:
+            self.clear_inspection()
 
     def clear_inspection(self):
         # Clear layout children

@@ -155,8 +155,7 @@ def compute_resolve_compat(vcodec: str, acodec: str) -> dict:
         "summary": summary,
         "video_status": "OK" if v_ok else "Needs transcode",
         "audio_status": "OK" if a_ok else "Needs transcode",
-        "structured_issues": structured_issues,
-        "fixes": []
+        "structured_issues": structured_issues
     }
 
 def get_file_info(file_path: str) -> dict:
