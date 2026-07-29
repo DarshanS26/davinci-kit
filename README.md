@@ -163,6 +163,19 @@ Available in both the GUI Transcode tab and the `davinci-kit-transcode` CLI:
 
 DNxHR is an intermediate editing format. Expect much larger files than H.264/H.265 sources.
 
+## AV1 Transcode
+
+AV1 is an alternative to DNxHR that Resolve Free on Linux can import directly (with compatible audio). It uses the SVT-AV1 encoder.
+
+| | DNxHR | AV1 |
+|---|---|---|
+| File size | Large (3-5 GB/min at HQ) | 4-5x smaller than DNxHR |
+| Decode speed | Fast (lightweight codec) | Slower (more CPU to decode) |
+| Best for | Smooth timeline playback, heavy editing | Archiving, lightweight editing, saving disk space |
+| Audio | PCM/ALAC in .mov | FLAC in .mkv |
+
+If you have limited disk space or are working with proxy-quality footage, AV1 is a good choice. For heavy color grading, Fusion compositing, or multi-layer timelines, DNxHR will give you smoother playback.
+
 ## Notes for Linux Users
 
 - Resolve needs a working GPU compute stack. Check with the Diagnostics button in the GUI or run `clinfo -l`.
