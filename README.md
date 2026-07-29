@@ -6,22 +6,26 @@ DaVinci Resolve Free on Linux cannot import the most common phone/camera formats
 
 ## Features
 
-- **GUI launcher** for common Resolve Linux workflows
+- **GUI** for common Resolve Linux workflows
 - **Import transcoding** to DNxHR `.mov` or AV1 `.mkv`
 - **Audio conversion** to WAV, FLAC, ALAC, or MP3
-- **Delivery exports** to H.264, H.265, AV1, WebM, ProRes, archive formats, and NVIDIA NVENC presets
+- **Delivery exports** to H.264, H.265, AV1, WebM, ProRes, and archive formats
+- **GPU-accelerated encoding** with NVENC (NVIDIA), AMF (AMD), QSV (Intel), and VAAPI (AMD/Intel) when available
 - **Media compatibility inspection** powered by `ffprobe`
 - **Watch folder** automation for automatic transcodes
-- **Resolve launch fix** for Arch-style library issues, Wayland/X11 quirks, and NVIDIA PRIME offload
+- **Resolve launch fix** for library mismatches, Wayland/X11 quirks, and GPU offload on hybrid laptops
 - **Font path fix** for Fusion/Text tools
 - **Backup/restore** for Resolve settings, LUTs, scripts, macros, and fonts
-- **System diagnostics** for OpenCL, GPU, codecs, library mismatches, disk space, and toolkit status
+- **System diagnostics** with severity-classified checks for GPU, OpenCL, codecs, library mismatches, disk space, and toolkit status
 
 ## Screenshots
 
-![DaVinci Resolve Kit main window](assets/screenshots/main-window.png)
-![DaVinci Resolve Kit media inspector](assets/screenshots/inspector-warning.png)
-![DaVinci Resolve Kit export delivery options](assets/screenshots/export-tab.png)
+<!-- Uncomment after adding screenshots to assets/screenshots/ -->
+<!-- ![DaVinci Resolve Kit main window](assets/screenshots/main-window.png) -->
+<!-- ![DaVinci Resolve Kit media inspector](assets/screenshots/inspector-warning.png) -->
+<!-- ![DaVinci Resolve Kit export delivery options](assets/screenshots/export-tab.png) -->
+
+Screenshots coming soon.
 
 ## Requirements
 
@@ -38,7 +42,8 @@ Optional:
 
 - `parallel` for `-j` parallel processing
 - `inotify-tools` / `inotifywait` for watch folders
-- NVIDIA users: working NVIDIA driver and OpenCL runtime (`opencl-nvidia` on Arch)
+- GPU users: working driver and OpenCL runtime (`opencl-nvidia` on Arch, `rocm-opencl` for AMD, `intel-compute-runtime` for Intel)
+- `clinfo` for OpenCL diagnostics
 
 Example packages:
 
@@ -63,6 +68,8 @@ Package names vary by distro. `install.sh` checks dependencies and warns if some
 curl -fsSL https://raw.githubusercontent.com/DarshanS26/resolve-kit/main/bootstrap.sh | bash
 ```
 
+This clones the repo to `~/.local/share/resolve-kit`, symlinks all tools to `~/.local/bin`, and installs a desktop entry.
+
 ### Manual git install
 
 ```bash
@@ -71,12 +78,16 @@ cd resolve-kit
 ./install.sh
 ```
 
-This symlinks the tools into `~/.local/bin` and installs a desktop entry named **DaVinci Resolve Kit**.
-
 Make sure `~/.local/bin` is on your `PATH`:
 
 ```bash
 echo $PATH | grep -q "$HOME/.local/bin" || echo 'Add ~/.local/bin to PATH'
+```
+
+### Arch / EndeavourOS (AUR)
+
+```bash
+yay -S resolve-kit
 ```
 
 ### Update
@@ -104,6 +115,7 @@ resolve-kit-update
 | `resolve-fonts` | Add user font directories to Resolve/Fusion |
 | `resolve-watch` | Auto-transcode new files in a folder |
 | `resolve-info` | Print Resolve/Linux diagnostics |
+| `resolve-kit-update` | Update resolve-kit via git |
 
 ## Quick Start
 
@@ -125,9 +137,9 @@ resolve-transcode -c av1 ~/Videos/footage        # compact AV1 output
 Convert a Resolve render for delivery:
 
 ```bash
-resolve-export export.mov                         # YouTube H.264 default
+resolve-export export.mov                         # H.264 (CPU default)
 resolve-export -p h265 export.mov
-resolve-export -p nvenc export.mov               # NVIDIA GPU H.264
+resolve-export -p nvenc export.mov               # NVIDIA GPU encode
 resolve-export -p youtube4k -r 4k export.mov
 ```
 
@@ -187,10 +199,11 @@ DNxHR is an intermediate editing format. Expect much larger files than H.264/H.2
 ## Notes for Linux Users
 
 - Resolve needs a working GPU compute stack. Check with `clinfo -l`.
-- On hybrid NVIDIA laptops, use `resolve-fix` to launch with PRIME offload.
+- On hybrid GPU laptops, `resolve-fix` automatically detects your GPU vendor and applies the right offload settings.
 - If Resolve starts crashing after a rolling-release distro update, try `resolve-fix`.
 - If user-installed fonts do not appear in Fusion/Text tools, run `resolve-fonts`.
 - If the UI scale is wrong, see `docs/DAVINCI-RESOLVE-LINUX-GUIDE.md` for the `DisplayScale`/`QT_SCALE_FACTOR` details.
+- The export tab detects available GPU encoders (NVENC, AMF, QSV, VAAPI) automatically from your ffmpeg build.
 
 ## Documentation
 
@@ -198,10 +211,10 @@ DNxHR is an intermediate editing format. Expect much larger files than H.264/H.2
 
 ## Roadmap
 
-- Better packaging for AUR and other distro channels
-- AppImage or Flatpak investigation for the GUI
-- More distro-specific dependency instructions
-- Screenshots and short demo videos
+- AppImage build for download without git
+- Demo video
+- More codec compatibility testing across distros
+- Distro-specific troubleshooting notes
 
 ## Credits
 
