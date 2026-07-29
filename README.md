@@ -20,12 +20,11 @@ DaVinci Resolve Free on Linux cannot import the most common phone/camera formats
 
 ## Screenshots
 
-<!-- Uncomment after adding screenshots to assets/screenshots/ -->
-<!-- ![DaVinci Resolve Kit main window](assets/screenshots/main-window.png) -->
-<!-- ![DaVinci Resolve Kit media inspector](assets/screenshots/inspector-warning.png) -->
-<!-- ![DaVinci Resolve Kit export delivery options](assets/screenshots/export-tab.png) -->
+![Transcode tab — batch convert footage for Resolve](assets/screenshots/transcode-tab.png)
 
-Screenshots coming soon.
+![Inspector tab — check file compatibility with Resolve Free on Linux](assets/screenshots/inspector-tab.png)
+
+![Export tab — convert Resolve renders to delivery formats](assets/screenshots/export-tab.png)
 
 ## Requirements
 
