@@ -2,7 +2,7 @@
 
 A Linux toolkit for DaVinci Resolve: GUI, transcoding, export presets, media inspection, diagnostics, font fixes, backups, and watch-folder automation.
 
-DaVinci Resolve Free on Linux cannot import the most common phone/camera formats directly: H.264/H.265 video and AAC audio. This project wraps the working Linux workflow in simple commands and a desktop GUI.
+DaVinci Resolve Free on Linux cannot import the most common phone/camera formats directly: H.264/H.265 video and AAC audio. This project wraps the working Linux workflow in a desktop GUI and companion CLI tools.
 
 ## Features
 
@@ -40,7 +40,7 @@ Required:
 
 Optional:
 
-- `parallel` for `-j` parallel processing
+- `parallel` for parallel processing
 - `inotify-tools` / `inotifywait` for watch folders
 - GPU users: working driver and OpenCL runtime (`opencl-nvidia` on Arch, `rocm-opencl` for AMD, `intel-compute-runtime` for Intel)
 - `clinfo` for OpenCL diagnostics
@@ -58,8 +58,6 @@ sudo apt install ffmpeg python3 python3-pyqt6 parallel inotify-tools clinfo
 sudo dnf install ffmpeg python3 python3-qt6 parallel inotify-tools clinfo
 ```
 
-Package names vary by distro. `install.sh` checks dependencies and warns if something is missing.
-
 ## Install
 
 ### One-line installer
@@ -68,13 +66,13 @@ Package names vary by distro. `install.sh` checks dependencies and warns if some
 curl -fsSL https://raw.githubusercontent.com/DarshanS26/davinci-kit/main/bootstrap.sh | bash
 ```
 
-This clones the repo to `~/.local/share/resolve-kit`, symlinks all tools to `~/.local/bin`, and installs a desktop entry.
+This clones the repo, symlinks all tools to `~/.local/bin`, and installs a desktop entry.
 
 ### Manual git install
 
 ```bash
 git clone https://github.com/DarshanS26/davinci-kit.git
-cd resolve-kit
+cd davinci-kit
 ./install.sh
 ```
 
@@ -102,65 +100,36 @@ resolve-kit-update
 ./install.sh --remove
 ```
 
-## Tools
-
-| Command | Purpose |
-|---|---|
-| `resolve-gui` | Desktop GUI for the toolkit |
-| `resolve-transcode` | Convert source media to Resolve-friendly DNxHR or AV1 |
-| `resolve-audio` | Convert audio files to WAV, FLAC, ALAC, or MP3 |
-| `resolve-export` | Convert Resolve renders to delivery formats |
-| `resolve-fix` | Launch Resolve with Linux compatibility fixes |
-| `resolve-backup` | Back up or restore Resolve settings and assets |
-| `resolve-fonts` | Add user font directories to Resolve/Fusion |
-| `resolve-watch` | Auto-transcode new files in a folder |
-| `resolve-info` | Print Resolve/Linux diagnostics |
-| `resolve-kit-update` | Update resolve-kit via git |
-
 ## Quick Start
 
-Launch the GUI:
+Launch the GUI from your applications menu (look for **DaVinci Resolve Kit**) or run:
 
 ```bash
 resolve-gui
 ```
 
-Transcode footage before importing into Resolve:
+The GUI has four tabs:
 
-```bash
-resolve-transcode ~/Videos/footage
-resolve-transcode -q lb ~/Videos/footage          # proxy quality
-resolve-transcode -q hqx -j 4 ~/Videos/raw       # high quality, parallel
-resolve-transcode -c av1 ~/Videos/footage        # compact AV1 output
-```
+1. **Transcode** — Drop your camera/phone footage, pick a codec (AV1 or DNxHR) and quality, click Start. The output is ready to import into Resolve.
 
-Convert a Resolve render for delivery:
+2. **Export** — Drop your Resolve render, pick a delivery format, click Convert. The output is a web-ready MP4/WebM/etc.
 
-```bash
-resolve-export export.mov                         # H.264 (CPU default)
-resolve-export -p h265 export.mov
-resolve-export -p nvenc export.mov               # NVIDIA GPU encode
-resolve-export -p youtube4k -r 4k export.mov
-```
+3. **Audio** — Drop audio files, pick an output format (WAV, FLAC, ALAC, MP3), click Convert.
 
-Convert audio-only files:
+4. **Inspector** — Drop any media file to see its codec, resolution, streams, and whether Resolve can import it. If not, it tells you exactly what to do.
 
-```bash
-resolve-audio voice-note.m4a
-resolve-audio -f flac ~/Audio/session
-```
+### Typical workflow
 
-Watch a folder:
-
-```bash
-resolve-watch ~/Downloads
-resolve-watch -q lb -d ~/Videos/ingest
-```
-
-Diagnose your setup:
-
-```bash
-resolve-info
+```text
+Camera/phone footage
+    ↓
+Drop into Transcode tab → get Resolve-ready files
+    ↓
+Edit in DaVinci Resolve
+    ↓
+Export DNxHR/ProRes from Resolve
+    ↓
+Drop into Export tab → get final MP4/WebM for delivery
 ```
 
 ## Why Transcoding Is Needed
@@ -178,13 +147,11 @@ DaVinci Resolve Free on Linux has different codec support than the Windows/macOS
 | FLAC / ALAC | Supported |
 | AV1 video | Supported for import on current Resolve versions, with compatible audio |
 
-Typical workflow:
-
-```text
-Camera/phone MP4 → resolve-transcode → edit in Resolve → DNxHR render → resolve-export → final MP4/WebM/etc.
-```
+Use the **Inspector** tab to check any file before importing — it tells you if Resolve can handle it and what to convert if not.
 
 ## DNxHR Quality Presets
+
+Available in both the GUI Transcode tab and the `resolve-transcode` CLI:
 
 | Preset | Use case |
 |---|---|
@@ -198,12 +165,67 @@ DNxHR is an intermediate editing format. Expect much larger files than H.264/H.2
 
 ## Notes for Linux Users
 
-- Resolve needs a working GPU compute stack. Check with `clinfo -l`.
-- On hybrid GPU laptops, `resolve-fix` automatically detects your GPU vendor and applies the right offload settings.
-- If Resolve starts crashing after a rolling-release distro update, try `resolve-fix`.
-- If user-installed fonts do not appear in Fusion/Text tools, run `resolve-fonts`.
+- Resolve needs a working GPU compute stack. Check with the Diagnostics button in the GUI or run `clinfo -l`.
+- On hybrid GPU laptops, the launch fix automatically detects your GPU vendor and applies the right offload settings.
+- If Resolve starts crashing after a rolling-release distro update, use the **Tools → Fix & Launch Resolve** option in the GUI.
+- If user-installed fonts do not appear in Fusion/Text tools, use **Tools → Fusion Fonts** in the GUI.
 - If the UI scale is wrong, see `docs/DAVINCI-RESOLVE-LINUX-GUIDE.md` for the `DisplayScale`/`QT_SCALE_FACTOR` details.
 - The export tab detects available GPU encoders (NVENC, AMF, QSV, VAAPI) automatically from your ffmpeg build.
+
+## CLI Reference
+
+All features are also available as command-line tools. These are useful for scripting, automation, or headless servers.
+
+| Command | Purpose |
+|---|---|
+| `resolve-gui` | Launch the desktop GUI |
+| `resolve-transcode` | Batch transcode media to DNxHR or AV1 |
+| `resolve-audio` | Batch convert audio to WAV, FLAC, ALAC, or MP3 |
+| `resolve-export` | Convert Resolve renders to delivery formats |
+| `resolve-fix` | Launch Resolve with compatibility fixes and GPU offload |
+| `resolve-backup` | Back up or restore Resolve settings |
+| `resolve-fonts` | Add user font directories to Resolve/Fusion |
+| `resolve-watch` | Auto-transcode files in a watched folder |
+| `resolve-info` | Print system diagnostics |
+| `resolve-kit-update` | Update via git |
+
+Transcode footage:
+
+```bash
+resolve-transcode ~/Videos/footage
+resolve-transcode -q lb ~/Videos/footage       # proxy quality
+resolve-transcode -c av1 ~/Videos/footage      # AV1 output
+resolve-transcode -q hqx -j 4 ~/Videos/raw     # 12-bit, 4 parallel jobs
+```
+
+Export for delivery:
+
+```bash
+resolve-export export.mov                       # H.264 (CPU default)
+resolve-export -p h265 export.mov
+resolve-export -p nvenc export.mov              # NVIDIA GPU
+resolve-export -p youtube4k -r 4k export.mov
+```
+
+Convert audio:
+
+```bash
+resolve-audio voice-note.m4a
+resolve-audio -f flac ~/Audio/session
+```
+
+Watch a folder:
+
+```bash
+resolve-watch ~/Downloads
+resolve-watch -q lb -d ~/Videos/ingest
+```
+
+Diagnostics:
+
+```bash
+resolve-info
+```
 
 ## Documentation
 
