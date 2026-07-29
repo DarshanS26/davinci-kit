@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# resolve-kit AppImage entry point
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export RESOLVE_KIT_PREFIX="$HERE/usr/share/resolve-kit"
+
+# Run the python GUI using system python3, pointing it to the correct modules/assets in AppImage
+exec python3 "$RESOLVE_KIT_PREFIX/gui/main.py" "$@"

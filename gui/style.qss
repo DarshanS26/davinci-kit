@@ -208,7 +208,7 @@ QCheckBox::indicator:unchecked {
 }
 
 QCheckBox::indicator:checked {
-    background-color: #00e5ff;
+    background-color: #0b0c10;
     border: 1.5px solid #00e5ff;
     image: url(__CHECK_SVG__);
 }

@@ -16,12 +16,15 @@ else
 fi
 
 section() { echo -e "\n${BOLD}${CYAN}━━━ $* ━━━${RESET}"; }
-ok()      { echo -e "  ${GREEN}✓${RESET} $*"; }
-warn()    { echo -e "  ${YELLOW}⚠${RESET} $*"; }
-fail()    { echo -e "  ${RED}✗${RESET} $*"; }
-info()    { echo -e "  ${DIM}→${RESET} $*"; }
+ok()         { echo -e "  ${GREEN}[OK]${RESET} $*"; }
+blocker()    { echo -e "  ${RED}[BLOCKER]${RESET} $*"; BLOCKERS=$((BLOCKERS + 1)); }
+workaround() { echo -e "  ${YELLOW}[WORKAROUND]${RESET} $*"; WORKAROUNDS=$((WORKAROUNDS + 1)); }
+optional()   { echo -e "  ${CYAN}[OPTIONAL]${RESET} $*"; OPTIONALS=$((OPTIONALS + 1)); }
+info()       { echo -e "  ${DIM}[INFO]${RESET} $*"; }
 
-ISSUES=0
+BLOCKERS=0
+WORKAROUNDS=0
+OPTIONALS=0
 
 echo -e "\n${BOLD}═══ DaVinci Resolve System Diagnostics ═══${RESET}"
 
@@ -34,7 +37,7 @@ if [[ -d /opt/resolve ]]; then
   if [[ -f /opt/resolve/bin/resolve ]]; then
     ver_string=$(strings /opt/resolve/bin/resolve 2>/dev/null | grep -oP '\d+\.\d+\.\d+\.\d+_lite' | head -1 || true)
     if [[ -n "$ver_string" ]]; then
-      warn "Version: ${ver_string/_lite/} (FREE/Lite — no plugin support)"
+      info "Version: ${ver_string/_lite/} (FREE/Lite)"
     else
       ver_string=$(strings /opt/resolve/bin/resolve 2>/dev/null | grep -oP '\d+\.\d+\.\d+' | head -1 || echo "unknown")
       info "Version: ${ver_string} (edition unknown)"
@@ -44,21 +47,21 @@ if [[ -d /opt/resolve ]]; then
   if [[ -f /opt/resolve/.license/blackmagic.lic ]] || ls /opt/resolve/.license/* 2>/dev/null | grep -q .; then
     ok "Studio license detected (plugins available)"
   else
-    warn "No Studio license found — IOEncoder plugins will NOT work"
+    optional "No Studio license found — IOEncoder plugins will NOT work"
     info "  IOEncoder plugins (H.264/H.265/AAC) require DaVinci Resolve Studio"
     info "  Codec support on Linux (Free version):"
     info "    H.264/H.265 decode: Studio only"
     info "    H.264/H.265 encode: Studio only"
-    info "    AV1 decode: FREE (GPU-accelerated with NVIDIA) \u2705"
+    info "    AV1 decode: FREE (GPU-accelerated with NVIDIA) ✅"
     info "    AV1 encode: Studio + NVIDIA GPU (RTX 40-series+ for NVENC AV1)"
     info "    AAC audio: Not supported on ANY Linux version (Free or Studio)"
-    info "    DNxHR/ProRes: Full support in Free version \u2705"
+    info "    DNxHR/ProRes: Full support in Free version ✅"
   fi
   # Check if IOPlugins directory exists
   if [[ -d /opt/resolve/IOPlugins ]] && ls /opt/resolve/IOPlugins/*.dvcp.bundle 2>/dev/null | grep -q .; then
     ok "IOPlugins installed: $(ls /opt/resolve/IOPlugins/*.dvcp.bundle 2>/dev/null | xargs -n1 basename | tr '\n' ' ')"
   else
-    info "No IOEncoder plugins installed (requires Studio)"
+    optional "No IOEncoder plugins installed (requires Studio)"
   fi
   # Check if from AUR
   if pacman -Q davinci-resolve &>/dev/null; then
@@ -66,11 +69,10 @@ if [[ -d /opt/resolve ]]; then
   elif pacman -Q davinci-resolve-studio &>/dev/null; then
     ok "AUR package (Studio): $(pacman -Q davinci-resolve-studio)"
   else
-    warn "Not installed via AUR — manual install"
+    info "Not installed via AUR (manual install)"
   fi
 else
-  fail "Resolve not found at /opt/resolve"
-  ISSUES=$((ISSUES + 1))
+  blocker "Resolve not found at /opt/resolve"
 fi
 
 # ── GPU & OpenCL ─────────────────────────────────────────────────────────────
@@ -83,7 +85,7 @@ if command -v nvidia-smi &>/dev/null; then
   ok "NVIDIA GPU: ${gpu_name:-unknown}, ${gpu_mem:-?} VRAM"
   info "Driver: ${gpu_driver:-unknown}"
 else
-  warn "nvidia-smi not found — no NVIDIA GPU or driver"
+  info "nvidia-smi not found — no NVIDIA GPU or driver detected (optional for AMD/Intel)"
 fi
 
 if command -v clinfo &>/dev/null; then
@@ -94,12 +96,10 @@ if command -v clinfo &>/dev/null; then
       info "$line"
     done
   else
-    fail "No OpenCL platforms found"
-    ISSUES=$((ISSUES + 1))
+    blocker "No OpenCL platforms found"
   fi
 else
-  warn "clinfo not installed — can't verify OpenCL"
-  info "Install: sudo pacman -S clinfo"
+  optional "clinfo not installed — cannot verify OpenCL. Install clinfo to verify."
 fi
 
 # Check OpenCL ICDs
@@ -110,26 +110,42 @@ fi
 # ── PRIME / Hybrid GPU ───────────────────────────────────────────────────────
 section "GPU Offload (PRIME)"
 
+has_hybrid=0
 if command -v envycontrol &>/dev/null; then
-  mode=$(cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status 2>/dev/null || echo "unknown")
+  has_hybrid=1
   info "Current GPU mode: $(envycontrol --query 2>/dev/null || echo 'unknown')"
 fi
 
+if ls /dev/dri/card* 2>/dev/null | wc -l | grep -q '[2-9]'; then
+  has_hybrid=1
+fi
+
+resolve_fix_exists=0
 if [[ -f "$HOME/.local/bin/resolve-fix" ]] || [[ -L "$HOME/.local/bin/resolve-fix" ]]; then
+  resolve_fix_exists=1
   ok "resolve-fix launcher exists"
 else
-  warn "resolve-fix launcher not found"
+  if [[ $has_hybrid -eq 1 ]]; then
+    workaround "resolve-fix launcher not found (needed on hybrid GPU setups to offload to NVIDIA)"
+  else
+    optional "resolve-fix launcher not found (optional workaround helper)"
+  fi
 fi
 
 if [[ -f "$HOME/.local/share/applications/com.blackmagicdesign.resolve.desktop" ]]; then
   ok "Desktop file override exists"
 else
-  warn "No custom desktop file — Resolve may use wrong GPU"
+  if [[ $has_hybrid -eq 1 ]]; then
+    workaround "No custom desktop file — Resolve may use wrong GPU on hybrid systems"
+  else
+    optional "No custom desktop file override (optional)"
+  fi
 fi
 
 # ── Library Mismatch ──────────────────────────────────────────────────────────
 section "Library Compatibility"
 
+glib_mismatch=0
 for lib in libglib-2.0.so.0 libgio-2.0.so.0 libgmodule-2.0.so.0 libgobject-2.0.so.0; do
   sys_ver=$(readlink /usr/lib/$lib 2>/dev/null || echo "missing")
   res_ver=$(readlink /opt/resolve/libs/$lib 2>/dev/null || echo "missing")
@@ -137,12 +153,21 @@ for lib in libglib-2.0.so.0 libgio-2.0.so.0 libgmodule-2.0.so.0 libgobject-2.0.s
     sys_num=$(echo "$sys_ver" | grep -oP '\d+\.\d+\.\d+' | head -1)
     res_num=$(echo "$res_ver" | grep -oP '\d+\.\d+\.\d+' | head -1)
     if [[ "$sys_num" > "$res_num" ]]; then
-      warn "$lib: system=$sys_ver > bundled=$res_ver (mismatch — use resolve-fix)"
-    else
-      ok "$lib: system=$sys_ver, bundled=$res_ver"
+      glib_mismatch=1
+      info "$lib: system=$sys_ver > bundled=$res_ver (mismatch)"
     fi
   fi
 done
+
+if [[ $glib_mismatch -eq 1 ]]; then
+  if [[ $resolve_fix_exists -eq 1 ]]; then
+    workaround "GLib version mismatch detected but resolve-fix workaround is active."
+  else
+    workaround "GLib version mismatch detected. resolve-fix workaround is needed to prevent crashes."
+  fi
+else
+  ok "No GLib library mismatches found."
+fi
 
 # ── Codecs ────────────────────────────────────────────────────────────────────
 section "FFmpeg Codecs"
@@ -155,7 +180,7 @@ if command -v ffmpeg &>/dev/null; then
     if echo "$encoders" | grep -qE "[[:space:]]+${codec}[[:space:]]+"; then
       ok "Encoder available: $codec"
     else
-      warn "Encoder missing: $codec"
+      optional "Encoder missing: $codec"
     fi
   done
   # Check key decoders
@@ -164,12 +189,15 @@ if command -v ffmpeg &>/dev/null; then
     if echo "$decoders" | grep -qE "[[:space:]]+${codec}[[:space:]]+"; then
       :
     else
-      warn "Decoder missing: $codec"
+      if [[ "$codec" == "wmv" ]]; then
+        optional "Decoder missing: wmv (only needed if importing WMV files)"
+      else
+        optional "Decoder missing: $codec"
+      fi
     fi
   done
 else
-  fail "ffmpeg not found!"
-  ISSUES=$((ISSUES + 1))
+  blocker "ffmpeg not found!"
 fi
 
 # ── Disk Space ────────────────────────────────────────────────────────────────
@@ -177,10 +205,9 @@ section "Disk Space"
 
 home_free=$(df -h /home 2>/dev/null | tail -1 | awk '{print $4}')
 home_pct=$(df -h /home 2>/dev/null | tail -1 | awk '{print $5}')
-ok "/home: ${home_free} free (${home_pct} used)"
+info "/home: ${home_free} free (${home_pct} used)"
 
 root_free=$(df -h / 2>/dev/null | tail -1 | awk '{print $4}')
-root_pct=$(df -h /home 2>/dev/null | tail -1 | awk '{print $5}')
 ok "/ (root): ${root_free} free"
 
 info "DNxHR HQ ≈ 660 Mbps ≈ 82 MB/s ≈ 5 GB/min of video"
@@ -193,13 +220,17 @@ config_file="$HOME/.local/share/DaVinciResolve/configs/config.user.xml"
 if [[ -f "$config_file" ]]; then
   font_path=$(grep -oP 'FontsPath[^>]*value="[^"]*"' "$config_file" 2>/dev/null | head -1 || echo "")
   if [[ -n "$font_path" ]]; then
-    echo "$font_path" | grep -q "$HOME/.local/share/fonts" && ok "User fonts in Fusion path" || warn "User fonts NOT in Fusion path — run resolve-fonts"
+    if echo "$font_path" | grep -q "$HOME/.local/share/fonts"; then
+      ok "User fonts in Fusion path"
+    else
+      optional "User fonts are not mapped. Run resolve-fonts only if fonts are missing in Fusion/Text."
+    fi
     info "$font_path"
   else
-    warn "No FontsPath entry found — default (system fonts only)"
+    optional "User fonts are not mapped. Run resolve-fonts only if fonts are missing in Fusion/Text."
   fi
 else
-  warn "Resolve config not found"
+  optional "User fonts are not mapped (Resolve config not found). Run resolve-fonts only if fonts are missing in Fusion/Text."
 fi
 
 user_font_count=$(find "$HOME/.local/share/fonts" "$HOME/.fonts" -name "*.ttf" -o -name "*.otf" 2>/dev/null | wc -l)
@@ -212,7 +243,7 @@ for tool in resolve-transcode resolve-audio resolve-export resolve-fix resolve-b
   if command -v "$tool" &>/dev/null; then
     ok "$tool"
   else
-    warn "$tool — not found on PATH"
+    optional "$tool — not found on PATH"
   fi
 done
 
@@ -247,9 +278,13 @@ echo    "    resolve-info          # This diagnostics screen"
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 echo
-if [[ $ISSUES -eq 0 ]]; then
-  echo -e "${GREEN}${BOLD}All checks passed! Resolve should work correctly.${RESET}"
+if [[ $BLOCKERS -eq 0 ]]; then
+  if [[ $WORKAROUNDS -eq 0 ]]; then
+    echo -e "${GREEN}${BOLD}Healthy: 0 blockers. Resolve appears usable.${RESET}"
+  else
+    echo -e "${YELLOW}${BOLD}Usable with workaround: 0 blockers, $WORKAROUNDS workaround(s).${RESET}"
+  fi
 else
-  echo -e "${YELLOW}${BOLD}Found $ISSUES issue(s) — review warnings above.${RESET}"
+  echo -e "${RED}${BOLD}Broken: $BLOCKERS blocker(s) need attention.${RESET}"
 fi
 echo

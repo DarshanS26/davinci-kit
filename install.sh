@@ -45,6 +45,7 @@ scripts=(
   "resolve-fonts"
   "resolve-watch"
   "resolve-info"
+  "resolve-kit-update"
 )
 
 # =============================================================================
@@ -148,6 +149,19 @@ else
     echo "  Linked: $script → $source"
   done
 
+  # ---- install icon --------------------------------------------------------
+  ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
+  mkdir -p "$ICON_DIR"
+  if [[ -f "$SCRIPT_DIR/packaging/resolve-kit.svg" ]]; then
+    cp "$SCRIPT_DIR/packaging/resolve-kit.svg" "$ICON_DIR/resolve-kit.svg"
+    echo "  Installed: $ICON_DIR/resolve-kit.svg"
+    if command -v gtk-update-icon-cache &>/dev/null; then
+      gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
+    fi
+  else
+    warn "packaging/resolve-kit.svg not found — desktop entry will fall back to system icon"
+  fi
+
   # ---- install desktop entry ------------------------------------------------
   echo
   echo "Installing desktop entry..."
@@ -159,7 +173,7 @@ Name=DaVinci Resolve Kit
 GenericName=DaVinci Resolve Linux Studio Toolkit
 Comment=Transcode, export, diagnose, and optimize DaVinci Resolve on Linux
 Exec=${BIN_DIR}/resolve-gui
-Icon=/opt/resolve/graphics/DV_Resolve.png
+Icon=resolve-kit
 StartupWMClass=davinci-kit
 Terminal=false
 Categories=AudioVideo;Video;AudioVideoEditing;Qt;
@@ -192,4 +206,5 @@ DESKTOP
   echo "  resolve-fonts      — Fix font paths in Fusion"
   echo "  resolve-watch      — Auto-transcode watch folder (DNxHR / AV1)"
   echo "  resolve-info       — System diagnostics"
+  echo "  resolve-kit-update — Update resolve-kit via git"
 fi

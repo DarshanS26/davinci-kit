@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 try:
     from PyQt6.QtWidgets import (
         QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget,
@@ -37,9 +39,9 @@ class MainWindow(QMainWindow):
         self.resize(1140, 700)
         self.setMinimumSize(900, 580)
 
-        icon_path = "/opt/resolve/graphics/DV_Resolve.png"
-        if os.path.exists(icon_path):
-            self.setWindowIcon(QIcon(icon_path))
+        our_icon = _PROJECT_ROOT / "gui" / "resources" / "resolve-kit.svg"
+        icon_path = str(our_icon) if our_icon.exists() else "/opt/resolve/graphics/DV_Resolve.png"
+        self.setWindowIcon(QIcon(icon_path))
 
         self.center_on_screen()
 

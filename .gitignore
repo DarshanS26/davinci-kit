@@ -30,6 +30,8 @@ ENV/
 docs/GUI-REDESIGN-PROPOSAL.md
 docs/INSPECTOR-TAB-PLAN.md
 docs/UI-SCALING.md
+docs/NEXT-RELEASE-IMPLEMENTATION-PLAN.md
+docs/OUTREACH-COPY.md
 
 # Build artifacts and local outputs
 *.AppImage
@@ -44,3 +46,6 @@ docs/UI-SCALING.md
 # OS files
 .DS_Store
 Thumbs.db
+
+# AppImage build tools
+packaging/appimage/appimagetool

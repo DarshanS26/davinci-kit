@@ -105,33 +105,42 @@ def compute_resolve_compat(vcodec: str, acodec: str) -> dict:
     a_ok = bool(a_match["supported"])
 
     issues = []
-    fixes = []
+    structured_issues = []
 
     if not v_ok and vcodec_clean != "none":
-        issues.append(f"❌ Video Codec '{v_match['name']}': {v_match['note']}")
+        video_note = "Studio-only on Linux" if vcodec_clean in ["h264", "hevc"] else v_match["note"]
+        structured_issues.append({"label": "Video", "text": f"{v_match['name']} is {video_note}."})
+        issues.append(f"Video Codec '{v_match['name']}': {v_match['note']}")
+
     if not a_ok and acodec_clean != "none":
-        issues.append(f"❌ Audio Codec '{a_match['name']}': {a_match['note']}")
+        audio_note = "unsupported on Linux" if acodec_clean in ["aac", "opus", "vorbis"] else a_match["note"]
+        structured_issues.append({"label": "Audio", "text": f"{a_match['name']} is {audio_note}."})
+        issues.append(f"Audio Codec '{a_match['name']}': {a_match['note']}")
 
     if v_ok and a_ok:
         verdict = "full"
-        badge_text = "✅ Fully Compatible with Resolve Free on Linux"
+        badge_text = "Ready for Resolve"
         badge_color = "#00e5ff"
-        fixes.append("Ready to edit — this media file uses native Linux-compatible formats and can be imported directly into DaVinci Resolve.")
+        title = "Ready for Resolve"
+        summary = "Video and audio are supported by Resolve on Linux. You can import this file directly."
     elif v_ok and not a_ok:
         verdict = "partial_audio"
-        badge_text = "⚠️ Video OK — Audio Needs Transcoding (AAC/Opus)"
+        badge_text = "Audio needs conversion"
         badge_color = "#ffb74d"
-        fixes.append("Convert audio stream to Lossless FLAC or PCM (24-bit WAV) for native Linux playback. Video stream can be copied without quality loss.")
+        title = "Audio needs conversion"
+        summary = "Resolve Free on Linux cannot play back the audio stream in this file."
     elif not v_ok and a_ok:
         verdict = "partial_video"
-        badge_text = "⚠️ Audio OK — Video Needs Transcoding (H.264/H.265)"
+        badge_text = "Needs transcode"
         badge_color = "#ffb74d"
-        fixes.append("Convert video to DNxHR (.mov) for smooth high-performance timeline editing, or SVT-AV1 (.mkv) for compact file size with GPU acceleration.")
+        title = "Needs transcode"
+        summary = "Resolve Free on Linux cannot import this file as-is."
     else:
         verdict = "incompatible"
-        badge_text = "❌ Incompatible — Full Transcode Required"
+        badge_text = "Needs transcode"
         badge_color = "#ff5252"
-        fixes.append("Convert video to DNxHR (.mov) or SVT-AV1 (.mkv), and convert audio to Lossless FLAC or PCM 24-bit WAV for full compatibility.")
+        title = "Needs transcode"
+        summary = "Resolve Free on Linux cannot import this file as-is."
 
     return {
         "verdict": verdict,
@@ -142,7 +151,12 @@ def compute_resolve_compat(vcodec: str, acodec: str) -> dict:
         "v_name": v_match["name"],
         "a_name": a_match["name"],
         "issues": issues,
-        "fixes": fixes
+        "title": title,
+        "summary": summary,
+        "video_status": "OK" if v_ok else "Needs transcode",
+        "audio_status": "OK" if a_ok else "Needs transcode",
+        "structured_issues": structured_issues,
+        "fixes": []
     }
 
 def get_file_info(file_path: str) -> dict:

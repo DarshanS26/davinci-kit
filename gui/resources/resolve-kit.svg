@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f111a"/>
+      <stop offset="100%" stop-color="#050608"/>
+    </linearGradient>
+    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00e5ff"/>
+      <stop offset="100%" stop-color="#008899"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Card -->
+  <rect x="32" y="32" width="448" height="448" rx="96" fill="url(#bgGrad)" stroke="#1c2030" stroke-width="8"/>
+  <!-- Clapperboard Top -->
+  <path d="M128 160h256v32H128z" fill="#1c2030"/>
+  <!-- Clapperboard stripes -->
+  <path d="M144 160l24 32h-16l-24-32zM208 160l24 32h-16l-24-32zM272 160l24 32h-16l-24-32zM336 160l24 32h-16l-24-32z" fill="#8c90a4"/>
+  <!-- Main Toolkit Accent / Gear / Play Circle -->
+  <circle cx="256" cy="288" r="96" fill="none" stroke="url(#cyanGrad)" stroke-width="16"/>
+  <!-- Play triangle inside -->
+  <path d="M228 240l72 48-72 48z" fill="url(#cyanGrad)"/>
+  <!-- Diagnostic bars / lines at bottom -->
+  <rect x="144" y="400" width="80" height="12" rx="6" fill="#ffb74d"/>
+  <rect x="240" y="400" width="128" height="12" rx="6" fill="#00e5ff"/>
+</svg>

@@ -7,7 +7,7 @@ try:
         QListWidget, QListWidgetItem, QCheckBox, QFrame, QMenu,
         QAbstractItemView, QSizePolicy, QApplication
     )
-    from PyQt6.QtCore import Qt, pyqtSignal, QSize
+    from PyQt6.QtCore import Qt, pyqtSignal, QSize, QUrl, QThread
     from PyQt6.QtGui import QAction, QCursor, QDesktopServices, QFontMetrics
 except ImportError:
     from PySide6.QtWidgets import (
@@ -15,11 +15,32 @@ except ImportError:
         QListWidget, QListWidgetItem, QCheckBox, QFrame, QMenu,
         QAbstractItemView, QSizePolicy, QApplication
     )
-    from PySide6.QtCore import Qt, Signal as pyqtSignal, QSize
+    from PySide6.QtCore import Qt, Signal as pyqtSignal, QSize, QUrl, QThread
     from PySide6.QtGui import QAction, QCursor, QDesktopServices, QFontMetrics
 
 from ..backend.inspector import get_file_info, format_size
 from ..components.drop_zone import DropZone
+
+class ProbeWorker(QThread):
+    file_ready = pyqtSignal(dict)
+    progress = pyqtSignal(int, int)  # current, total
+    finished = pyqtSignal()
+
+    def __init__(self, file_list: list, parent=None):
+        super().__init__(parent)
+        self.file_list = file_list
+
+    def run(self):
+        total = len(self.file_list)
+        for i, path in enumerate(self.file_list):
+            self.progress.emit(i + 1, total)
+            try:
+                meta = get_file_info(path)
+                if meta and meta.get("valid"):
+                    self.file_ready.emit(meta)
+            except Exception:
+                pass
+        self.finished.emit()
 
 class ElidedLabel(QLabel):
     def __init__(self, text="", parent=None):
@@ -37,6 +58,8 @@ class ElidedLabel(QLabel):
         super().paintEvent(event)
 
 class FileQueueItemWidget(QWidget):
+    toggled = pyqtSignal(str, bool)
+
     def __init__(self, meta: dict, parent=None):
         super().__init__(parent)
         self.meta = meta
@@ -50,6 +73,7 @@ class FileQueueItemWidget(QWidget):
         self.chk.setChecked(True)
         self.chk.setFixedSize(18, 18)
         self.chk.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.chk.toggled.connect(self._on_toggled)
 
         # Filename & Details
         info_box = QVBoxLayout()
@@ -92,6 +116,9 @@ class FileQueueItemWidget(QWidget):
         layout.addWidget(self.chk)
         layout.addLayout(info_box, 1)
 
+    def _on_toggled(self, checked):
+        self.toggled.emit(self.meta.get("path", ""), checked)
+
 class FileQueue(QFrame):
     queue_changed = pyqtSignal()
 
@@ -100,6 +127,9 @@ class FileQueue(QFrame):
         self.setObjectName("cardFrame")
 
         self.selected_files_meta = []
+        self.enabled_paths = set()
+        self._active_workers = []
+        self._accepting_files = True
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -139,11 +169,20 @@ class FileQueue(QFrame):
         layout.addWidget(self.list_widget, 1)
 
         # Summary Footer
-        self.lbl_summary = QLabel("0 files  •  0 MB total", self)
+        self.lbl_summary = QLabel("0 files queued", self)
         self.lbl_summary.setStyleSheet("font-size: 11px; color: #8c90a4; font-weight: 500;")
         layout.addWidget(self.lbl_summary)
 
+    def _set_path_enabled(self, path: str, enabled: bool):
+        if enabled:
+            self.enabled_paths.add(path)
+        else:
+            self.enabled_paths.discard(path)
+        self._update_summary()
+        self.queue_changed.emit()
+
     def add_paths(self, paths: list):
+        self._accepting_files = True
         file_list = []
         for p in paths:
             if os.path.isfile(p):
@@ -153,34 +192,65 @@ class FileQueue(QFrame):
                     for f in sorted(files):
                         file_list.append(os.path.join(root, f))
 
-        added_any = False
-        for p in file_list:
-            if any(m["path"] == p for m in self.selected_files_meta):
-                continue
-            meta = get_file_info(p)
-            if meta and meta.get("valid"):
-                self.selected_files_meta.append(meta)
-                item = QListWidgetItem(self.list_widget)
-                item_widget = FileQueueItemWidget(meta, self.list_widget)
-                self.list_widget.setItemWidget(item, item_widget)
-                item.setSizeHint(item_widget.sizeHint())
-                added_any = True
+        existing_paths = {m["path"] for m in self.selected_files_meta}
+        files_to_probe = [f for f in file_list if f not in existing_paths]
+        if not files_to_probe:
+            return
 
-        if added_any:
-            self._update_summary()
-            self.queue_changed.emit()
+        worker = ProbeWorker(files_to_probe, self)
+        worker.file_ready.connect(self._on_file_probed)
+        worker.progress.connect(self._on_probe_progress)
+        worker.finished.connect(lambda: self._on_probe_finished(worker))
+        self._active_workers.append(worker)
+        worker.start()
+
+    def _on_file_probed(self, meta):
+        if not self._accepting_files:
+            return
+        if any(m["path"] == meta["path"] for m in self.selected_files_meta):
+            return
+        self.selected_files_meta.append(meta)
+        self.enabled_paths.add(meta["path"])
+        item = QListWidgetItem(self.list_widget)
+        item_widget = FileQueueItemWidget(meta, self.list_widget)
+        item_widget.toggled.connect(self._set_path_enabled)
+        self.list_widget.setItemWidget(item, item_widget)
+        item.setSizeHint(item_widget.sizeHint())
+        self.queue_changed.emit()
+
+    def _on_probe_progress(self, current, total):
+        self.lbl_summary.setText(f"🔍 Scanning {current}/{total} files…")
+
+    def _on_probe_finished(self, worker):
+        if worker in self._active_workers:
+            self._active_workers.remove(worker)
+        self._update_summary()
+
+    def remove_row(self, row: int):
+        if not (0 <= row < self.list_widget.count()):
+            return
+        item = self.list_widget.takeItem(row)
+        if row < len(self.selected_files_meta):
+            path = self.selected_files_meta[row]["path"]
+            self.enabled_paths.discard(path)
+            self.selected_files_meta.pop(row)
+        self._update_summary()
+        self.queue_changed.emit()
 
     def remove_selected(self):
         selected_rows = [self.list_widget.row(item) for item in self.list_widget.selectedItems()]
         for row in sorted(selected_rows, reverse=True):
-            self.list_widget.takeItem(row)
-            if row < len(self.selected_files_meta):
-                self.selected_files_meta.pop(row)
-        self._update_summary()
-        self.queue_changed.emit()
+            self.remove_row(row)
 
     def clear_all(self):
+        # Stop any active probe workers
+        self._accepting_files = False
+        for worker in self._active_workers:
+            worker.quit()
+            worker.wait(1000)  # wait up to 1 second
+        self._active_workers.clear()
         self.selected_files_meta.clear()
+        self.enabled_paths.clear()
         self.list_widget.clear()
         self._update_summary()
         self.queue_changed.emit()
@@ -189,16 +259,20 @@ class FileQueue(QFrame):
         if not self.selected_files_meta:
             self.lbl_summary.setText("0 files queued")
             return
-        count = len(self.selected_files_meta)
-        total_bytes = sum(m["filesize_bytes"] for m in self.selected_files_meta)
-        total_sec = sum(m["duration_sec"] for m in self.selected_files_meta)
+        total_count = len(self.selected_files_meta)
+        selected_count = sum(1 for m in self.selected_files_meta if m["path"] in self.enabled_paths)
+        selected_bytes = sum(m["filesize_bytes"] for m in self.selected_files_meta if m["path"] in self.enabled_paths)
+        selected_sec = sum(m["duration_sec"] for m in self.selected_files_meta if m["path"] in self.enabled_paths)
 
-        hrs = int(total_sec // 3600)
-        mins = int((total_sec % 3600) // 60)
-        secs = int(total_sec % 60)
+        hrs = int(selected_sec // 3600)
+        mins = int((selected_sec % 3600) // 60)
+        secs = int(selected_sec % 60)
         dur_str = f"{hrs:02d}:{mins:02d}:{secs:02d}" if hrs > 0 else f"{mins:02d}:{secs:02d}"
 
-        self.lbl_summary.setText(f"📁 {count} files queued  •  {format_size(total_bytes)}  •  {dur_str} total duration")
+        self.lbl_summary.setText(
+            f"📁 {selected_count} selected / {total_count} queued  •  "
+            f"{format_size(selected_bytes)} selected  •  {dur_str} selected"
+        )
 
     def _show_context_menu(self, pos):
         item = self.list_widget.itemAt(pos)
@@ -211,7 +285,7 @@ class FileQueue(QFrame):
 
         menu = QMenu(self)
         act_remove = QAction("Remove Item", self)
-        act_remove.triggered.connect(self.remove_selected)
+        act_remove.triggered.connect(lambda checked=False, r=row: self.remove_row(r))
 
         act_folder = QAction("Show in File Manager", self)
         act_folder.triggered.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(meta["path"]))))
@@ -225,4 +299,7 @@ class FileQueue(QFrame):
         menu.exec(QCursor.pos())
 
     def get_selected_metadata(self) -> list:
-        return self.selected_files_meta
+        return [m for m in self.selected_files_meta if m["path"] in self.enabled_paths]
+
+    def get_all_metadata(self) -> list:
+        return list(self.selected_files_meta)

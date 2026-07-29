@@ -19,7 +19,9 @@ DaVinci Resolve Free on Linux cannot import the most common phone/camera formats
 
 ## Screenshots
 
-Screenshots are not included yet. Contributions are welcome.
+![DaVinci Resolve Kit main window](assets/screenshots/main-window.png)
+![DaVinci Resolve Kit media inspector](assets/screenshots/inspector-warning.png)
+![DaVinci Resolve Kit export delivery options](assets/screenshots/export-tab.png)
 
 ## Requirements
 
@@ -55,6 +57,14 @@ Package names vary by distro. `install.sh` checks dependencies and warns if some
 
 ## Install
 
+### One-line installer
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/DarshanS26/resolve-kit/main/bootstrap.sh | bash
+```
+
+### Manual git install
+
 ```bash
 git clone https://github.com/DarshanS26/resolve-kit.git
 cd resolve-kit
@@ -69,7 +79,13 @@ Make sure `~/.local/bin` is on your `PATH`:
 echo $PATH | grep -q "$HOME/.local/bin" || echo 'Add ~/.local/bin to PATH'
 ```
 
-Uninstall:
+### Update
+
+```bash
+resolve-kit-update
+```
+
+### Uninstall
 
 ```bash
 ./install.sh --remove

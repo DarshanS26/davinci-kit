@@ -29,7 +29,8 @@ def main():
     app.setDesktopFileName("davinci-kit")
 
     # Set Application Window Dock Icon
-    icon_path = "/opt/resolve/graphics/DV_Resolve.png"
+    our_icon = PROJECT_ROOT / "gui" / "resources" / "resolve-kit.svg"
+    icon_path = str(our_icon) if our_icon.exists() else "/opt/resolve/graphics/DV_Resolve.png"
     if os.path.exists(icon_path):
         app_icon = QIcon(icon_path)
         app.setWindowIcon(app_icon)
@@ -45,8 +46,7 @@ def main():
             print(f"[WARN] Failed to load QSS stylesheet: {e}")
 
     window = MainWindow()
-    if os.path.exists(icon_path):
-        window.setWindowIcon(QIcon(icon_path))
+    window.setWindowIcon(QIcon(icon_path))
     window.show()
     sys.exit(app.exec())
 

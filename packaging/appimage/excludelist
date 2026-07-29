@@ -1,0 +1,20 @@
+.git
+.github
+__pycache__
+*.pyc
+*.pyo
+*.bak
+*.swp
+*.log
+docs/GUI-REDESIGN-PROPOSAL.md
+docs/INSPECTOR-TAB-PLAN.md
+docs/UI-SCALING.md
+packaging/aur
+
+# Planning docs — find -name cannot match these paths (matches basename only).
+# Explicitly removed in build.sh via rm -f.
+# docs/GUI-REDESIGN-PROPOSAL.md  (already listed above)
+# docs/INSPECTOR-TAB-PLAN.md    (already listed above)
+# docs/UI-SCALING.md            (already listed above)
+# docs/NEXT-RELEASE-IMPLEMENTATION-PLAN.md
+# docs/OUTREACH-COPY.md

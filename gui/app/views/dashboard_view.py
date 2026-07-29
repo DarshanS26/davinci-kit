@@ -161,13 +161,24 @@ class DashboardView(QWidget):
         self.card_disk.set_value(f"{disk['free_gb']} GB Free ({disk['percent_used']}% used of {disk['total_gb']} GB)")
 
         glib = results["glib"]
+        resolve_fix_exists = os.path.exists(os.path.expanduser("~/.local/bin/resolve-fix")) or os.path.exists("/usr/bin/resolve-fix")
+
         if not glib["resolve_installed"]:
             self.card_glib.set_value("DaVinci Resolve not found at /opt/resolve")
-        elif glib["count"] > 0:
-            self.card_glib.set_value(f"⚠️ {glib['count']} system library mismatch(es) detected")
-            self.alert_text.setText(f"Found {glib['count']} library mismatch(es) between system and /opt/resolve/libs. Resolve might crash unless launched with fix.")
-            self.alert_frame.setStyleSheet("QFrame#alertFrame { background-color: rgba(255, 183, 3, 0.08); border: 1px solid rgba(255, 183, 3, 0.3); border-radius: 8px; }")
+            self.alert_text.setText("DaVinci Resolve installation was not found at /opt/resolve.")
+            self.alert_frame.setStyleSheet("QFrame#alertFrame { background-color: rgba(255, 82, 82, 0.08); border: 1px solid rgba(255, 82, 82, 0.3); border-radius: 8px; }")
             self.alert_frame.show()
+        elif glib["count"] > 0:
+            if resolve_fix_exists:
+                self.card_glib.set_value(f"🟡 GLib: Workaround Active")
+                self.alert_text.setText(f"Found {glib['count']} library mismatch(es). Use resolve-fix if Resolve crashes.")
+                self.alert_frame.setStyleSheet("QFrame#alertFrame { background-color: rgba(255, 183, 3, 0.08); border: 1px solid rgba(255, 183, 3, 0.3); border-radius: 8px; }")
+                self.alert_frame.show()
+            else:
+                self.card_glib.set_value(f"🔴 GLib: Workaround Needed")
+                self.alert_text.setText(f"Found {glib['count']} library mismatch(es). resolve-fix is needed to launch Resolve safely.")
+                self.alert_frame.setStyleSheet("QFrame#alertFrame { background-color: rgba(255, 82, 82, 0.08); border: 1px solid rgba(255, 82, 82, 0.3); border-radius: 8px; }")
+                self.alert_frame.show()
         else:
             self.card_glib.set_value("All libraries aligned & working")
             self.alert_frame.hide()

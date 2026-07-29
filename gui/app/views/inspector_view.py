@@ -158,36 +158,65 @@ class InspectorView(QWidget):
         c_box.setContentsMargins(16, 14, 16, 14)
         c_box.setSpacing(10)
 
-        badge_lbl = QLabel(compat["badge_text"], compat_card)
+        # Status Title
+        badge_lbl = QLabel(compat["title"], compat_card)
         badge_lbl.setWordWrap(True)
-        badge_lbl.setStyleSheet(f"font-size: 14px; font-weight: 700; color: {compat['badge_color']}; border: none; background: transparent;")
+        badge_lbl.setStyleSheet(f"font-size: 14px; font-weight: 700; color: {compat['badge_color']};")
         c_box.addWidget(badge_lbl)
 
-        if compat["issues"]:
-            iss_box = QVBoxLayout()
-            iss_box.setSpacing(4)
-            for iss in compat["issues"]:
-                l = QLabel(iss, compat_card)
-                l.setWordWrap(True)
-                l.setStyleSheet("font-size: 12px; color: #ff8a80; border: none; background: transparent;")
-                iss_box.addWidget(l)
-            c_box.addLayout(iss_box)
+        # Summary Description
+        summary_lbl = QLabel(compat["summary"], compat_card)
+        summary_lbl.setWordWrap(True)
+        summary_lbl.setStyleSheet("font-size: 12px; color: #a9acbe;")
+        c_box.addWidget(summary_lbl)
 
-        if compat["fixes"]:
-            fix_box = QVBoxLayout()
-            fix_box.setSpacing(4)
-            fix_title = QLabel("💡 Recommended Action:", compat_card)
-            fix_title.setWordWrap(True)
-            fix_title.setStyleSheet("font-weight: 600; color: #a0a5ba; font-size: 12px; border: none; background: transparent;")
-            fix_box.addWidget(fix_title)
+        # Issues
+        if compat["structured_issues"]:
+            c_box.addSpacing(4)
+            iss_title = QLabel("Issues", compat_card)
+            iss_title.setStyleSheet("font-size: 11px; font-weight: 600; color: #8c90a4; text-transform: uppercase;")
+            c_box.addWidget(iss_title)
 
-            for fix in compat["fixes"]:
-                l = QLabel(f"• {fix}", compat_card)
-                l.setWordWrap(True)
-                l.setStyleSheet("font-size: 12px; color: #00e5ff; font-weight: 500; border: none; background: transparent;")
-                l.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-                fix_box.addWidget(l)
-            c_box.addLayout(fix_box)
+            for issue in compat["structured_issues"]:
+                row_layout = QHBoxLayout()
+                row_layout.setSpacing(8)
+
+                lbl_label = QLabel(issue["label"] + ":", compat_card)
+                lbl_label.setFixedWidth(50)
+                lbl_label.setStyleSheet("font-size: 12px; color: #ff8a80; font-weight: bold;")
+
+                lbl_text = QLabel(issue["text"], compat_card)
+                lbl_text.setWordWrap(True)
+                lbl_text.setStyleSheet("font-size: 12px; color: #f0f2fb;")
+
+                row_layout.addWidget(lbl_label)
+                row_layout.addWidget(lbl_text, 1)
+                c_box.addLayout(row_layout)
+
+        # Fix section with command
+        if compat["verdict"] != "full":
+            c_box.addSpacing(4)
+            fix_title = QLabel("Fix", compat_card)
+            fix_title.setStyleSheet("font-size: 11px; font-weight: 600; color: #8c90a4; text-transform: uppercase;")
+            c_box.addWidget(fix_title)
+
+            cmd_box = QLabel(compat_card)
+            cmd_box.setWordWrap(True)
+            cmd_box.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            cmd_box.setStyleSheet("""
+                background-color: #14161f;
+                border-radius: 4px;
+                padding: 8px;
+                border: 1px solid #20232d;
+                font-family: monospace;
+                font-size: 12px;
+                color: #00e5ff;
+            """)
+            if compat["verdict"] == "partial_audio":
+                cmd_box.setText(f'resolve-audio "{file_path}"')
+            else:
+                cmd_box.setText(f'resolve-transcode "{file_path}"')
+            c_box.addWidget(cmd_box)
 
         self.scroll_layout.addWidget(compat_card)
 
