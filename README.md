@@ -85,7 +85,7 @@ echo $PATH | grep -q "$HOME/.local/bin" || echo 'Add ~/.local/bin to PATH'
 ### Arch / EndeavourOS (AUR)
 
 ```bash
-yay -S resolve-kit
+yay -S davinci-kit
 ```
 
 ### Update
