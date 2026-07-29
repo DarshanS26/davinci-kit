@@ -385,7 +385,10 @@ def calculate_estimated_output(duration_sec: float, mode: str, profile_or_preset
         export_bitrates = {
             "youtube": 18.0, "youtube4k": 45.0, "h265": 12.0, "h2654k": 25.0,
             "nvenc": 18.0, "nvenc265": 12.0, "prores": 220.0, "webm": 8.0,
-            "archive": 35.0, "av1": 6.0, "av14k": 12.0
+            "archive": 35.0, "av1": 6.0, "av14k": 12.0,
+            "h264_amf": 16.0, "hevc_amf": 10.0, "h264_qsv": 16.0, "hevc_qsv": 10.0,
+            "h264_vaapi": 18.0, "hevc_vaapi": 12.0,
+            "av1_nvenc": 8.0, "av1_amf": 8.0, "av1_qsv": 8.0, "av1_vaapi": 8.0
         }
         bitrate_mbps = export_bitrates.get(target_key, 18.0)
         res = resolution.lower() if resolution else "original"

@@ -229,9 +229,9 @@ section "FFmpeg Codecs"
 
 if command -v ffmpeg &>/dev/null; then
   ok "ffmpeg: $(ffmpeg -hide_banner -version 2>/dev/null | head -1 || echo 'installed')"
-  
+
   encoders=$(ffmpeg -hide_banner -encoders 2>/dev/null || true)
-  
+
   # Check standard software encoders
   for codec in "dnxhd" "libx264" "libx265" "libsvtav1" "aac" "pcm_s24le" "alac" "libvpx-vp9" "libopus" "flac"; do
     if echo "$encoders" | grep -qE "[[:space:]]+${codec}[[:space:]]+"; then
@@ -240,7 +240,7 @@ if command -v ffmpeg &>/dev/null; then
       optional "Encoder missing: $codec"
     fi
   done
-  
+
   # Check hardware encoders (only print if available)
   for codec in h264_nvenc hevc_nvenc av1_nvenc h264_amf hevc_amf av1_amf h264_qsv hevc_qsv av1_qsv h264_vaapi hevc_vaapi av1_vaapi; do
     if echo "$encoders" | grep -qE "[[:space:]]+${codec}[[:space:]]+"; then

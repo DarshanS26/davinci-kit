@@ -18,12 +18,12 @@ def detect_hybrid_gpu() -> dict:
                 vendors.append("intel")
         except:
             pass
-    
+
     unique_vendors = set(vendors)
     is_hybrid = len(unique_vendors) > 1
     discrete = "nvidia" if "nvidia" in vendors else ("amd" if "amd" in vendors else None)
     integrated = "intel" if "intel" in vendors else ("amd" if "amd" in vendors and is_hybrid else None)
-    
+
     return {
         "is_hybrid": is_hybrid,
         "discrete_vendor": discrete,
@@ -47,12 +47,12 @@ def detect_lib_dir() -> str:
 def detect_hw_encoders() -> dict:
     """Check which hardware encoders are available in the system ffmpeg."""
     try:
-        encoders = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"], 
+        encoders = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"],
                                   capture_output=True, text=True, timeout=5)
         text = encoders.stdout + encoders.stderr
     except Exception:
         text = ""
-    
+
     return {
         "h264_nvenc": "h264_nvenc" in text,    # NVIDIA
         "hevc_nvenc": "hevc_nvenc" in text,    # NVIDIA
@@ -103,18 +103,18 @@ def detect_gpu() -> dict:
             for line in lspci_out.stdout.splitlines():
                 if any(x in line.lower() for x in ["vga compatible controller", "3d controller", "display controller"]):
                     gpu_lines.append(line)
-            
+
             if gpu_lines:
                 selected_line = gpu_lines[0]
                 for line in gpu_lines:
                     if "nvidia" in line.lower() or "amd" in line.lower() or "ati " in line.lower():
                         selected_line = line
                         break
-                
+
                 model = selected_line
                 if ":" in selected_line:
                     model = selected_line.split(":", 2)[-1].strip()
-                
+
                 vendor = "unknown"
                 model_lower = model.lower()
                 if "nvidia" in model_lower:
@@ -123,7 +123,7 @@ def detect_gpu() -> dict:
                     vendor = "amd"
                 elif "intel" in model_lower or "graphics" in model_lower:
                     vendor = "intel"
-                
+
                 vram_total = "N/A"
                 vram_paths = glob.glob("/sys/class/drm/card*/device/mem_info_vram_total")
                 if vram_paths:
@@ -133,7 +133,7 @@ def detect_gpu() -> dict:
                             vram_total = f"{bytes_val // 1024 // 1024} MB"
                     except:
                         pass
-                
+
                 hybrid_info = detect_hybrid_gpu()
                 return {
                     "vendor": vendor,

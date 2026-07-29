@@ -23,11 +23,11 @@ from ..components.drop_zone import DropZone
 
 SUPPORTED_EXTENSIONS = {
     # Video
-    "mp4", "mkv", "avi", "mov", "mxf", "wmv", "flv", "webm", "ts", "m2ts", "mts", 
-    "mpg", "mpeg", "m4v", "3gp", "ogv", "vob", "rmvb", "rm", "asf", "divx", "dv", 
+    "mp4", "mkv", "avi", "mov", "mxf", "wmv", "flv", "webm", "ts", "m2ts", "mts",
+    "mpg", "mpeg", "m4v", "3gp", "ogv", "vob", "rmvb", "rm", "asf", "divx", "dv",
     "f4v", "hevc", "h264", "h265",
     # Audio
-    "mp3", "aac", "flac", "ogg", "m4a", "wma", "aiff", "aif", "opus", "wav", 
+    "mp3", "aac", "flac", "ogg", "m4a", "wma", "aiff", "aif", "opus", "wav",
     "ape", "alac", "mka", "ac3", "dts", "eac3", "amr", "au", "ra"
 }
 
