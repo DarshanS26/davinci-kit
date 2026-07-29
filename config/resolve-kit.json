@@ -1,0 +1,51 @@
+{
+  "version": "1.0.0",
+  "name": "resolve-kit",
+  "description": "DaVinci Resolve Linux toolkit — transcode, export, diagnose, and optimize",
+
+  "defaults": {
+    "quality": "sq",
+    "audio_mode": "auto",
+    "parallel_jobs": 1,
+    "watch_dir": "~/Downloads",
+    "output_suffix": "resolve_ready"
+  },
+
+  "presets": {
+    "import": {
+      "proxy":     { "quality": "lb",  "audio": "pcm",   "description": "Proxy/offline editing" },
+      "standard":  { "quality": "sq",  "audio": "auto",  "description": "Standard quality" },
+      "high":      { "quality": "hq",  "audio": "auto",  "description": "High quality (default)" },
+      "ultra":     { "quality": "hqx", "audio": "auto",  "description": "12-bit high quality" },
+      "master":    { "quality": "444", "audio": "alac",  "description": "4:4:4 maximum quality" }
+    },
+    "export": {
+      "youtube":    { "vcodec": "libx264", "vparams": "-crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart", "acodec": "aac", "aparams": "-b:a 192k -ar 48000", "ext": "mp4" },
+      "youtube4k":  { "vcodec": "libx264", "vparams": "-crf 20 -preset slow -pix_fmt yuv420p -movflags +faststart", "acodec": "aac", "aparams": "-b:a 192k -ar 48000", "ext": "mp4" },
+      "h265":       { "vcodec": "libx265", "vparams": "-crf 22 -preset medium -pix_fmt yuv420p -movflags +faststart", "acodec": "aac", "aparams": "-b:a 192k -ar 48000", "ext": "mp4" },
+      "h2654k":     { "vcodec": "libx265", "vparams": "-crf 24 -preset medium -pix_fmt yuv420p -movflags +faststart", "acodec": "aac", "aparams": "-b:a 192k -ar 48000", "ext": "mp4" },
+      "prores":     { "vcodec": "prores_ks", "vparams": "-profile:v 3 -pix_fmt yuv422p10le", "acodec": "pcm_s24le", "aparams": "-ar 48000", "ext": "mov" },
+      "webm":       { "vcodec": "libvpx-vp9", "vparams": "-crf 30 -b:v 0 -pix_fmt yuv420p", "acodec": "libopus", "aparams": "-b:a 128k -ar 48000", "ext": "webm" },
+      "archive":    { "vcodec": "libx264", "vparams": "-crf 15 -preset slow -pix_fmt yuv420p -movflags +faststart", "acodec": "flac", "aparams": "-ar 48000", "ext": "mkv" },
+      "av1":        { "vcodec": "libsvtav1", "vparams": "-crf 30 -preset 6 -pix_fmt yuv420p -movflags +faststart", "acodec": "libopus", "aparams": "-b:a 128k -ar 48000", "ext": "mp4" },
+      "av14k":      { "vcodec": "libsvtav1", "vparams": "-crf 32 -preset 6 -pix_fmt yuv420p -movflags +faststart", "acodec": "libopus", "aparams": "-b:a 128k -ar 48000", "ext": "mp4" }
+    }
+  },
+
+  "paths": {
+    "resolve_install": "/opt/resolve",
+    "resolve_bin": "/opt/resolve/bin/resolve",
+    "resolve_config": "~/.local/share/DaVinciResolve/configs/config.user.xml",
+    "resolve_data": "~/.local/share/DaVinciResolve",
+    "blackmagic_config": "~/.config/Blackmagic Design/DaVinci Resolve",
+    "user_fonts": ["~/.local/share/fonts", "~/.fonts"],
+    "system_fonts": "/usr/share/fonts"
+  },
+
+  "system": {
+    "gpu": "NVIDIA GeForce RTX 3050 Laptop GPU",
+    "gpu_memory": "4096 MiB",
+    "opencl_platform": "NVIDIA CUDA",
+    "launch_method": "PRIME offload"
+  }
+}

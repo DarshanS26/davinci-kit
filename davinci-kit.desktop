@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=DaVinci Resolve Kit
+GenericName=DaVinci Resolve Linux Studio Toolkit
+Comment=Transcode, export, diagnose, and optimize DaVinci Resolve on Linux
+Exec=resolve-gui
+Icon=/opt/resolve/graphics/DV_Resolve.png
+StartupWMClass=davinci-kit
+Terminal=false
+Categories=AudioVideo;Video;AudioVideoEditing;Qt;
+Keywords=DaVinci;Resolve;Transcode;FFmpeg;DNxHR;Video;Linux;Export;

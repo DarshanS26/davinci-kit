@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  resolve-backup — Back up and restore DaVinci Resolve settings, configs,
+#                    LUTs, fonts, scripts, and macros on Linux
+#
+#  Adapted from ChrisTitusTech/resolve-linux/resolve_backup.sh
+#  Customized for EndeavourOS/Arch
+#
+#  Usage:
+#    resolve-backup [OPTIONS]
+#    resolve-backup --restore <archive.tar.gz>
+# =============================================================================
+
+set -euo pipefail
+
+OUTPUT_DIR="."
+DRY_RUN=false
+ACTION="backup"
+RESTORE_ARCHIVE=""
+RESTORE_HOME="${HOME}"
+RESTORE_OPT="/opt"
+
+if [[ -t 1 ]]; then
+  RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+  CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
+else
+  RED=''; GREEN=''; YELLOW=''; CYAN=''; BOLD=''; RESET=''
+fi
+
+info()    { echo -e "${CYAN}[INFO]${RESET}  $*"; }
+success() { echo -e "${GREEN}[OK]${RESET}    $*"; }
+warn()    { echo -e "${YELLOW}[WARN]${RESET}  $*"; }
+error()   { echo -e "${RED}[ERR]${RESET}   $*" >&2; }
+header()  { echo -e "\n${BOLD}$*${RESET}"; }
+
+usage() {
+cat <<EOF
+${BOLD}resolve-backup${RESET} — Back up / restore DaVinci Resolve on Linux
+
+  ${BOLD}BACKUP${RESET}
+    $0 [OPTIONS]
+
+  ${BOLD}RESTORE${RESET}
+    $0 --restore <archive.tar.gz>
+
+  ${BOLD}OPTIONS${RESET}
+    -o, --output-dir DIR    Output directory for archive (default: .)
+    -n, --dry-run           Show what would be backed up, no archive
+    -r, --restore FILE       Restore from archive
+        --restore-home DIR   Restore home payload into DIR (default: \$HOME)
+        --restore-opt DIR    Restore opt payload into DIR (default: /opt)
+    -h, --help              Show this help
+
+  ${BOLD}WHAT'S BACKED UP${RESET}
+    • Resolve install (/opt/resolve, excluding plugins/LUT)
+    • User configs (~/.local/share/DaVinciResolve/)
+    • Blackmagic configs (~/.config/Blackmagic Design/)
+    • User fonts (~/.local/share/fonts, ~/.fonts, ~/.config/fontconfig)
+    • Resolve scripts, macros, LUTs, Fusion templates
+
+  ${BOLD}EXAMPLES${RESET}
+    $0                                    # Backup to current directory
+    $0 -o ~/backups                       # Backup to specific directory
+    $0 -n                                 # Dry-run preview
+    $0 --restore resolve-backup.tar.gz     # Restore from archive
+EOF
+exit 0
+}
+
+# ── Parse arguments ───────────────────────────────────────────────────────────
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -o|--output-dir)
+      OUTPUT_DIR="${2:?--output-dir requires a value}"
+      shift 2
+      ;;
+    -n|--dry-run)
+      DRY_RUN=true
+      shift
+      ;;
+    -r|--restore)
+      RESTORE_ARCHIVE="${2:?--restore requires a value}"
+      ACTION="restore"
+      shift 2
+      ;;
+    --restore-home)
+      RESTORE_HOME="${2:?--restore-home requires a value}"
+      shift 2
+      ;;
+    --restore-opt)
+      RESTORE_OPT="${2:?--restore-opt requires a value}"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      ;;
+    *)
+      error "Unknown option: $1"
+      usage
+      ;;
+  esac
+done
+
+# ── Paths to back up ──────────────────────────────────────────────────────────
+BACKUP_PATHS=(
+  "/opt/resolve"
+  "$HOME/.local/share/DaVinciResolve"
+  "$HOME/.config/Blackmagic Design"
+  "$HOME/.local/share/fonts"
+  "$HOME/.fonts"
+  "$HOME/.config/fontconfig"
+)
+
+# ── Excluded from /opt/resolve ────────────────────────────────────────────────
+EXCLUDE_PATHS=(
+  "/opt/resolve/plugins"
+  "/opt/resolve/LUT"
+)
+
+# ── Backup ─────────────────────────────────────────────────────────────────────
+do_backup() {
+  header "=== resolve-backup ==="
+
+  local timestamp=$(date +%Y%m%d-%H%M%S)
+  local archive_name="resolve-backup-${timestamp}.tar.gz"
+  local archive_path="${OUTPUT_DIR}/${archive_name}"
+
+  # Filter to only existing paths
+  local existing=()
+  for p in "${BACKUP_PATHS[@]}"; do
+    if [[ -e "$p" ]]; then
+      existing+=("$p")
+      info "Will back up: $p"
+    else
+      warn "Not found, skipping: $p"
+    fi
+  done
+
+  if [[ ${#existing[@]} -eq 0 ]]; then
+    error "No backup paths found"
+    exit 1
+  fi
+
+  echo
+  info "Archive: $archive_path"
+  info "Paths: ${#existing[@]}"
+  $DRY_RUN && info "DRY-RUN — no archive will be created"
+
+  if $DRY_RUN; then
+    echo
+    for p in "${existing[@]}"; do
+      if [[ "$p" == "/opt/resolve" ]]; then
+        du -sh "$p" 2>/dev/null || echo "  $p (size unknown)"
+        echo "  (excluding plugins/ and LUT/)"
+      else
+        du -sh "$p" 2>/dev/null || echo "  $p (size unknown)"
+      fi
+    done
+    return 0
+  fi
+
+  mkdir -p "$OUTPUT_DIR"
+
+  # Build tar command
+  local tar_args=()
+  for p in "${existing[@]}"; do
+    if [[ "$p" == "/opt/resolve" ]]; then
+      # Exclude plugins and LUT directories
+      tar_args+=(--exclude="/opt/resolve/plugins" --exclude="/opt/resolve/LUT")
+    fi
+    tar_args+=("$p")
+  done
+
+  info "Creating archive..."
+  if tar -czf "$archive_path" "${tar_args[@]}" 2>&1; then
+    local size
+    size=$(du -h "$archive_path" 2>/dev/null | cut -f1 || echo "?")
+    success "Backup created: $archive_path ($size)"
+  else
+    error "Backup failed"
+    rm -f "$archive_path"
+    exit 1
+  fi
+}
+
+# ── Restore ───────────────────────────────────────────────────────────────────
+do_restore() {
+  header "=== resolve-backup (restore) ==="
+
+  [[ -f "$RESTORE_ARCHIVE" ]] || { error "Archive not found: $RESTORE_ARCHIVE"; exit 1; }
+
+  local stage_dir
+  stage_dir="$(mktemp -d)"
+
+  info "Archive     : $RESTORE_ARCHIVE"
+  info "Restore home: $RESTORE_HOME"
+  info "Restore opt : $RESTORE_OPT"
+
+  info "Extracting archive..."
+  if ! tar -xzf "$RESTORE_ARCHIVE" -C "$stage_dir" 2>&1; then
+    error "Failed to extract archive"
+    rm -rf "$stage_dir"
+    exit 1
+  fi
+
+  echo
+  info "Contents:"
+  find "$stage_dir" -maxdepth 3 -type d | head -20 | sed 's/^/  /'
+
+  echo
+  warn "This will overwrite existing Resolve settings. Continue? [y/N]"
+  read -r confirm
+  [[ "$confirm" =~ ^[Yy]$ ]] || { info "Aborted"; rm -rf "$stage_dir"; exit 0; }
+
+  # Restore each top-level path
+  for p in "${BACKUP_PATHS[@]}"; do
+    local src="$stage_dir$p"
+    if [[ -e "$src" ]]; then
+      info "Restoring: $p"
+      if [[ "$p" == /opt/* ]]; then
+        sudo rsync -a "$src/" "$p/"
+      else
+        rsync -a "$src/" "$p/"
+      fi
+    fi
+  done
+
+  rm -rf "$stage_dir"
+  success "Restore complete"
+  info "You may need to restart DaVinci Resolve for changes to take effect."
+}
+
+# ── Run ────────────────────────────────────────────────────────────────────────
+if [[ "$ACTION" == "restore" ]]; then
+  do_restore
+else
+  do_backup
+fi

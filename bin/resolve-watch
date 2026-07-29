@@ -1,0 +1,298 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  resolve-watch — Auto-transcode files in a directory using inotifywait
+#
+#  Watches a directory for new/modified video files and automatically
+#  transcodes them to DNxHR or AV1 for DaVinci Resolve (Linux / free codec set).
+#
+#  Usage:
+#    resolve-watch [OPTIONS] [DIRECTORY]
+#
+#  By default watches ~/Downloads for new media files.
+#  Requires: inotifywait (from inotify-tools package)
+#
+#  Options:
+#    -c CODEC    Output codec: dnxhr|av1  (default: dnxhr)
+#    -q QUALITY   Quality profile: lb|sq|hq|hqx|444  (default: hq)
+#    -a MODE      Audio mode: auto|pcm|alac|flac  (default: auto)
+#    -o DIR       Output directory (default: <watch_dir>/resolve_ready)
+#    -d           Run as daemon (background, no terminal output)
+#    -h           Show this help
+# =============================================================================
+
+set -euo pipefail
+
+WATCH_DIR="$HOME/Downloads"
+OUTPUT_CODEC="dnxhr"
+QUALITY="hq"
+AUDIO_MODE="auto"
+OUTPUT_DIR_CUSTOM=""
+DAEMON=false
+
+if [[ -t 1 ]]; then
+  RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+  CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
+else
+  RED=''; GREEN=''; YELLOW=''; CYAN=''; BOLD=''; RESET=''
+fi
+
+info()    { echo -e "${CYAN}[WATCH]${RESET}  $*"; }
+success() { echo -e "${GREEN}[DONE]${RESET}   $*"; }
+warn()    { echo -e "${YELLOW}[WARN]${RESET}   $*"; }
+error()   { echo -e "${RED}[ERR]${RESET}    $*" >&2; }
+
+# ── Comprehensive extension list (same as resolve-transcode) ───────────────────
+VIDEO_EXTS="mp4|mkv|avi|mov|mxf|wmv|flv|webm|ts|m2ts|mts|mpg|mpeg|m4v|3gp|3g2|ogv|ogm|vob|rmvb|rm|asf|divx|dv|f4v|hevc|h264|h265|ivf|mod|tod|m2v|y4m|webp|gif|nut|wtv|bink|bk2|swf|evo|dvr|av1"
+
+get_dnxhr_profile() {
+  case "$1" in
+    lb)  echo "dnxhr_lb"  ;;
+    sq)  echo "dnxhr_sq"  ;;
+    hq)  echo "dnxhr_hq"  ;;
+    hqx) echo "dnxhr_hqx" ;;
+    444) echo "dnxhr_444" ;;
+  esac
+}
+
+get_av1_params() {
+  case "$1" in
+    lb)  echo "35|8|yuv420p"       ;;
+    sq)  echo "30|6|yuv420p"       ;;
+    hq)  echo "26|4|yuv420p"       ;;
+    hqx) echo "22|2|yuv420p10le"   ;;
+    444) echo "20|1|yuv420p10le"   ;;
+  esac
+}
+
+get_output_ext() {
+  case "$OUTPUT_CODEC" in
+    dnxhr) echo "mov" ;;
+    av1)   echo "mkv" ;;
+  esac
+}
+
+get_audio_codec() {
+  local file="$1"
+  ffprobe -v quiet -select_streams a:0 \
+    -show_entries stream=codec_name -of csv=p=0 "$file" 2>/dev/null | head -1
+}
+
+build_audio_args() {
+  local input="$1" audio_codec
+  audio_codec=$(get_audio_codec "$input")
+
+  if [[ "$AUDIO_MODE" == "alac" ]]; then
+    echo "-c:a alac"
+  elif [[ "$AUDIO_MODE" == "pcm" ]]; then
+    echo "-c:a pcm_s24le -ar 48000 -ac 2"
+  elif [[ "$AUDIO_MODE" == "flac" ]]; then
+    echo "-c:a flac -ar 48000 -ac 2"
+  else
+    # auto: detect and decide
+    case "$audio_codec" in
+      pcm_*|flac) echo "-c:a copy" ;;
+      alac)       echo "-c:a alac" ;;
+      ""|none)    echo "-an" ;;
+      *)          echo "-c:a flac -ar 48000 -ac 2" ;;
+    esac
+  fi
+}
+
+transcode_file() {
+  local input="$1"
+  local base="${input%.*}"
+  local out_ext
+  out_ext=$(get_output_ext)
+  local output="${OUTPUT_DIR}/$(basename "$base").${out_ext}"
+
+  # Skip if output already exists
+  [[ -f "$output" ]] && { warn "Already exists: $(basename "$output")"; return 0; }
+
+  mkdir -p "$OUTPUT_DIR"
+
+  local audio_args
+  audio_args=$(build_audio_args "$input")
+
+  if [[ "$OUTPUT_CODEC" == "av1" ]]; then
+    # ── AV1 output (SVT-AV1 → MKV) ──────────────────────────────────────────
+    local av1_crf av1_preset av1_pixfmt
+    IFS='|' read -r av1_crf av1_preset av1_pixfmt <<< "$(get_av1_params "$QUALITY")"
+
+    info "Transcoding: $(basename "$input") → $(basename "$output") [AV1 CRF ${av1_crf} preset ${av1_preset}]"
+
+    ffmpeg -hide_banner -loglevel error -stats \
+      -i "$input" \
+      -map 0:v:0 -map '0:a?' \
+      -c:v libsvtav1 -crf "$av1_crf" -preset "$av1_preset" \
+      -pix_fmt "$av1_pixfmt" \
+      $audio_args \
+      -y "$output" 2>&1 && success "$(basename "$output")" || {
+        error "Failed: $(basename "$input")"
+        rm -f "$output"
+        return 1
+      }
+  else
+    # ── DNxHR output (Avid DNxHR → MOV) ────────────────────────────────────
+    local profile
+    profile=$(get_dnxhr_profile "$QUALITY")
+    local pix_fmt="yuv422p"
+    [[ "$QUALITY" == "hqx" ]] && pix_fmt="yuv422p12le"
+    [[ "$QUALITY" == "444" ]] && pix_fmt="yuv444p12le"
+
+    info "Transcoding: $(basename "$input") → $(basename "$output") [$profile]"
+
+    ffmpeg -hide_banner -loglevel error -stats \
+      -i "$input" \
+      -map 0:v:0 -map '0:a?' \
+      -c:v dnxhd -profile:v "$profile" \
+      -pix_fmt "$pix_fmt" \
+      $audio_args \
+      -movflags write_colr \
+      -y "$output" 2>&1 && success "$(basename "$output")" || {
+        error "Failed: $(basename "$input")"
+        rm -f "$output"
+        return 1
+      }
+  fi
+}
+
+usage() {
+cat <<EOF
+${BOLD}resolve-watch${RESET} — Auto-transcode directory for DaVinci Resolve
+
+  ${BOLD}USAGE${RESET}
+    $0 [OPTIONS] [DIRECTORY]
+
+  ${BOLD}DESCRIPTION${RESET}
+    Watches DIRECTORY for new/modified video files and automatically
+    transcodes them for DaVinci Resolve on Linux.
+    Default watch directory: ~/Downloads
+
+  ${BOLD}OPTIONS${RESET}
+    -c CODEC    Output codec: dnxhr|av1  (default: dnxhr)
+    -q QUALITY  Quality profile: lb|sq|hq|hqx|444  (default: hq)
+    -a MODE     Audio mode: auto|pcm|alac|flac  (default: auto)
+    -o DIR      Output directory (default: <watch_dir>/resolve_ready)
+    -d          Run as daemon (background)
+    -h          Show this help
+
+  ${BOLD}EXAMPLES${RESET}
+    $0                                  # Watch ~/Downloads (DNxHR HQ)
+    $0 -c av1 /mnt/ingest               # Watch and convert to AV1
+    $0 -c av1 -q sq /mnt/footage        # AV1 standard quality
+    $0 -d /mnt/ingest                   # Background daemon mode
+    $0 -c av1 -q lb -d /mnt/ingest      # AV1 proxy, daemon mode
+
+  ${BOLD}INSTALL${RESET}
+    Arch: sudo pacman -S inotify-tools
+EOF
+exit 0
+}
+
+while getopts ":c:q:a:o:dh" opt; do
+  case $opt in
+    c) OUTPUT_CODEC="$OPTARG" ;;
+    q) QUALITY="$OPTARG" ;;
+    a) AUDIO_MODE="$OPTARG" ;;
+    o) OUTPUT_DIR_CUSTOM="$OPTARG" ;;
+    d) DAEMON=true ;;
+    h) usage ;;
+    :) error "Option -$OPTARG requires an argument."; exit 1 ;;
+    \?) error "Unknown option: -$OPTARG"; exit 1 ;;
+  esac
+done
+shift $((OPTIND - 1))
+[[ $# -gt 0 ]] && WATCH_DIR="$1"
+
+# Validate codec
+case "$OUTPUT_CODEC" in
+  dnxhr|av1) ;;
+  *) error "Invalid codec: $OUTPUT_CODEC. Choose dnxhr|av1"; exit 1 ;;
+esac
+
+# Validate quality
+case "$QUALITY" in
+  lb|sq|hq|hqx|444) ;;
+  *) error "Invalid quality: $QUALITY. Choose lb|sq|hq|hqx|444"; exit 1 ;;
+esac
+
+# Validate audio mode
+case "$AUDIO_MODE" in
+  auto|pcm|alac|flac) ;;
+  *) error "Invalid audio mode: $AUDIO_MODE. Choose auto|pcm|alac|flac"; exit 1 ;;
+esac
+
+WATCH_DIR="$(realpath "$WATCH_DIR")"
+[[ -d "$WATCH_DIR" ]] || { error "Not a directory: $WATCH_DIR"; exit 1; }
+
+OUTPUT_DIR="${OUTPUT_DIR_CUSTOM:-${WATCH_DIR}/resolve_ready}"
+OUTPUT_DIR="$(realpath -m "$OUTPUT_DIR")"
+
+command -v inotifywait &>/dev/null || {
+  error "inotifywait not found. Install: sudo pacman -S inotify-tools"
+  exit 1
+}
+command -v ffmpeg &>/dev/null || { error "ffmpeg not found"; exit 1; }
+
+# Check for SVT-AV1 if av1 mode
+if [[ "$OUTPUT_CODEC" == "av1" ]]; then
+  _enc_list="$(ffmpeg -hide_banner -encoders 2>&1 || true)"
+  echo "$_enc_list" | grep -q "libsvtav1" || {
+    error "SVT-AV1 encoder not found in ffmpeg. Install: sudo pacman -S svt-av1"
+    exit 1
+  }
+fi
+
+# ── Daemon mode ───────────────────────────────────────────────────────────────
+if $DAEMON; then
+  LOG_FILE="/tmp/resolve-watch.log"
+  info "Starting daemon mode, logging to $LOG_FILE"
+  echo "$(date): resolve-watch started — watching $WATCH_DIR (codec=$OUTPUT_CODEC q=$QUALITY)" > "$LOG_FILE"
+  nohup "$0" -c "$OUTPUT_CODEC" -q "$QUALITY" -a "$AUDIO_MODE" -o "$OUTPUT_DIR" "$WATCH_DIR" >> "$LOG_FILE" 2>&1 &
+  echo "PID: $!"
+  exit 0
+fi
+
+# ── Watch loop ────────────────────────────────────────────────────────────────
+mkdir -p "$OUTPUT_DIR"
+
+echo
+info "Watching:  $WATCH_DIR"
+info "Output:    $OUTPUT_DIR"
+info "Codec:     $OUTPUT_CODEC"
+if [[ "$OUTPUT_CODEC" == "av1" ]]; then
+  IFS='|' read -r crf preset pixfmt <<< "$(get_av1_params "$QUALITY")"
+  info "AV1:       CRF ${crf}, SVT preset ${preset}, ${pixfmt}"
+else
+  info "DNxHR:     $QUALITY ($(get_dnxhr_profile "$QUALITY"))"
+fi
+info "Audio:     $AUDIO_MODE"
+echo
+
+# First, process any existing files that haven't been transcoded yet
+info "Scanning for existing unconverted files..."
+existing=0
+while IFS= read -r -d '' f; do
+  # Skip files in the output directory
+  [[ "$f" == "$OUTPUT_DIR"* ]] && continue
+  out_ext=$(get_output_ext)
+  base="${f%.*}.${out_ext}"
+  output="${OUTPUT_DIR}/$(basename "${f%.*}").${out_ext}"
+  if [[ ! -f "$output" ]]; then
+    transcode_file "$f"
+    ((existing++))
+  fi
+done < <(find "$WATCH_DIR" -maxdepth 1 -type f -regextype posix-extended -iregex ".*\.(${VIDEO_EXTS})$" -print0 2>/dev/null)
+
+[[ $existing -eq 0 ]] && info "No pending files found"
+
+info "Watching for new files... (Ctrl+C to stop)"
+
+inotifywait -m -e close_write -e moved_to --format '%w%f' "$WATCH_DIR" 2>/dev/null | while read -r newfile; do
+  # Check if it's a media file
+  if [[ "$newfile" =~ \.(${VIDEO_EXTS})$ ]]; then
+    # Wait a moment for the file to finish writing
+    sleep 2
+    transcode_file "$newfile"
+  fi
+done

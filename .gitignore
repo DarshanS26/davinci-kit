@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+eggs/
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Backups and editor swap files
+*.bak
+*.backup
+*~
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Local planning/design docs (keep in repo locally, don't publish)
+docs/GUI-REDESIGN-PROPOSAL.md
+docs/INSPECTOR-TAB-PLAN.md
+docs/UI-SCALING.md
+
+# Build artifacts and local outputs
+*.AppImage
+*.deb
+*.rpm
+
+# IDE / editor
+.vscode/
+.idea/
+*.sublime-*
+
+# OS files
+.DS_Store
+Thumbs.db

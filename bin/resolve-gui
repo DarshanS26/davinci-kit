@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  resolve-gui — Graphical interface launcher for resolve-kit
+# =============================================================================
+
+set -euo pipefail
+
+REAL_SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "$REAL_SCRIPT")" && pwd)"
+GUI_MAIN="${SCRIPT_DIR}/../gui/main.py"
+
+if [[ ! -f "$GUI_MAIN" ]]; then
+  echo "[ERR] Could not find GUI entry point at $GUI_MAIN" >&2
+  exit 1
+fi
+
+exec python3 "$GUI_MAIN" "$@"

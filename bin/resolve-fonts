@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  resolve-fonts — Fix DaVinci Resolve font path configuration on Linux
+#
+#  By default, Resolve only looks in system font paths (/usr/share/fonts).
+#  User-installed fonts in ~/.local/share/fonts and ~/.fonts are invisible.
+#
+#  This script:
+#  1. Updates the Fusion path map to include user font directories
+#  2. Symlinks user fonts into the system font path (if needed)
+#  3. Refreshes the font cache
+#
+#  Based on tips from Chris Titus Tech and jchai01's comprehensive guide.
+# =============================================================================
+
+set -euo pipefail
+
+CONFIG_FILE="$HOME/.local/share/DaVinciResolve/configs/config.user.xml"
+
+if [[ -t 1 ]]; then
+  GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
+else
+  GREEN=''; YELLOW=''; CYAN=''; BOLD=''; RESET=''
+fi
+
+info() { echo -e "${CYAN}[INFO]${RESET} $*"; }
+ok()   { echo -e "${GREEN}[OK]${RESET}   $*"; }
+warn() { echo -e "${YELLOW}[WARN]${RESET} $*"; }
+
+# ── Check if Resolve is running ──────────────────────────────────────────────
+if pgrep -x resolve &>/dev/null; then
+  warn "DaVinci Resolve is currently running."
+  warn "Please close Resolve before modifying font paths."
+  echo "  Continue anyway? [y/N]"
+  read -r confirm
+  [[ "$confirm" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 1; }
+fi
+
+# ── Step 1: Create user font directories if they don't exist ──────────────────
+for fdir in "$HOME/.local/share/fonts" "$HOME/.fonts"; do
+  if [[ ! -d "$fdir" ]]; then
+    mkdir -p "$fdir"
+    info "Created font directory: $fdir"
+  fi
+done
+
+# ── Step 2: Update Fusion font path in config.user.xml ────────────────────────
+if [[ -f "$CONFIG_FILE" ]]; then
+  info "Updating Resolve Fusion font path map..."
+
+  # Backup the config
+  cp "$CONFIG_FILE" "${CONFIG_FILE}.bak.$(date +%Y%m%d-%H%M%S)"
+
+  # Check current font path setting
+  current_font_path=$(grep -oP 'FontsPath[^>]*value="[^"]*"' "$CONFIG_FILE" 2>/dev/null | head -1 || true)
+
+  if [[ -n "$current_font_path" ]]; then
+    echo "  Current FontsPath: $current_font_path"
+    # Replace with expanded path
+    sed -i "s|FontsPath.*value=\"[^\"]*\"|FontsPath value=\"SystemFonts:;$HOME/.local/share/fonts:$HOME/.fonts\"|" "$CONFIG_FILE" 2>/dev/null || true
+  else
+    # Look for other font-related entries
+    if grep -q 'IsFontWhiteListEnabled' "$CONFIG_FILE"; then
+      # Insert FontsPath before IsFontWhiteListEnabled
+      sed -i "/IsFontWhiteListEnabled/i \    <FontsPath value=\"SystemFonts:;$HOME/.local/share/fonts:$HOME/.fonts\"/>" "$CONFIG_FILE"
+    fi
+  fi
+
+  ok "Updated Fusion font path to include user font directories"
+else
+  warn "Config file not found: $CONFIG_FILE"
+  warn "Font path will be configured on next Resolve launch."
+fi
+
+# ── Step 3: Update fontconfig for the system ──────────────────────────────────
+info "Refreshing font cache..."
+if command -v fc-cache &>/dev/null; then
+  fc-cache -f "$HOME/.local/share/fonts" 2>/dev/null || true
+  fc-cache -f "$HOME/.fonts" 2>/dev/null || true
+  ok "Font cache refreshed"
+else
+  warn "fc-cache not found; font cache not refreshed"
+fi
+
+# ── Step 4: Show summary of font directories ──────────────────────────────────
+echo
+echo "${BOLD}Font directory summary:${RESET}"
+echo "  System fonts:  /usr/share/fonts/"
+ls /usr/share/fonts/ 2>/dev/null | head -5 | sed 's/^/    /'
+echo "  User fonts:    $HOME/.local/share/fonts/"
+ls "$HOME/.local/share/fonts/" 2>/dev/null | head -5 | sed 's/^/    /'
+echo "  Legacy fonts:  $HOME/.fonts/"
+ls "$HOME/.fonts/" 2>/dev/null | head -5 | sed 's/^/    /'
+
+# ── Step 5: Instructions ─────────────────────────────────────────────────────
+echo
+echo "${BOLD}Next steps:${RESET}"
+echo "  1. Open DaVinci Resolve"
+echo "  2. Go to Fusion → Fusion Settings → Path Map"
+echo "  3. Verify 'Fonts:' path includes:"
+echo "     SystemFonts:;$HOME/.local/share/fonts:$HOME/.fonts"
+echo "  4. Restart Resolve to pick up new fonts"
+echo
+ok "Done! User fonts should now be visible in Resolve titles and Fusion."

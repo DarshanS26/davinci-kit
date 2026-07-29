@@ -1,0 +1,255 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  resolve-info — Show DaVinci Resolve system diagnostics and tips
+#
+#  Checks GPU, OpenCL, codecs, disk space, font paths, library versions,
+#  and configuration — everything relevant to running Resolve on Linux.
+# =============================================================================
+
+set -euo pipefail
+
+if [[ -t 1 ]]; then
+  GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'
+  RED='\033[0;31m'; BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
+else
+  GREEN=''; YELLOW=''; CYAN=''; RED=''; BOLD=''; DIM=''; RESET=''
+fi
+
+section() { echo -e "\n${BOLD}${CYAN}━━━ $* ━━━${RESET}"; }
+ok()      { echo -e "  ${GREEN}✓${RESET} $*"; }
+warn()    { echo -e "  ${YELLOW}⚠${RESET} $*"; }
+fail()    { echo -e "  ${RED}✗${RESET} $*"; }
+info()    { echo -e "  ${DIM}→${RESET} $*"; }
+
+ISSUES=0
+
+echo -e "\n${BOLD}═══ DaVinci Resolve System Diagnostics ═══${RESET}"
+
+# ── Resolve Installation ──────────────────────────────────────────────────────
+section "Installation"
+
+if [[ -d /opt/resolve ]]; then
+  ok "Resolve installed at /opt/resolve"
+  # Detect version and edition
+  if [[ -f /opt/resolve/bin/resolve ]]; then
+    ver_string=$(strings /opt/resolve/bin/resolve 2>/dev/null | grep -oP '\d+\.\d+\.\d+\.\d+_lite' | head -1 || true)
+    if [[ -n "$ver_string" ]]; then
+      warn "Version: ${ver_string/_lite/} (FREE/Lite — no plugin support)"
+    else
+      ver_string=$(strings /opt/resolve/bin/resolve 2>/dev/null | grep -oP '\d+\.\d+\.\d+' | head -1 || echo "unknown")
+      info "Version: ${ver_string} (edition unknown)"
+    fi
+  fi
+  # Check for Studio license
+  if [[ -f /opt/resolve/.license/blackmagic.lic ]] || ls /opt/resolve/.license/* 2>/dev/null | grep -q .; then
+    ok "Studio license detected (plugins available)"
+  else
+    warn "No Studio license found — IOEncoder plugins will NOT work"
+    info "  IOEncoder plugins (H.264/H.265/AAC) require DaVinci Resolve Studio"
+    info "  Codec support on Linux (Free version):"
+    info "    H.264/H.265 decode: Studio only"
+    info "    H.264/H.265 encode: Studio only"
+    info "    AV1 decode: FREE (GPU-accelerated with NVIDIA) \u2705"
+    info "    AV1 encode: Studio + NVIDIA GPU (RTX 40-series+ for NVENC AV1)"
+    info "    AAC audio: Not supported on ANY Linux version (Free or Studio)"
+    info "    DNxHR/ProRes: Full support in Free version \u2705"
+  fi
+  # Check if IOPlugins directory exists
+  if [[ -d /opt/resolve/IOPlugins ]] && ls /opt/resolve/IOPlugins/*.dvcp.bundle 2>/dev/null | grep -q .; then
+    ok "IOPlugins installed: $(ls /opt/resolve/IOPlugins/*.dvcp.bundle 2>/dev/null | xargs -n1 basename | tr '\n' ' ')"
+  else
+    info "No IOEncoder plugins installed (requires Studio)"
+  fi
+  # Check if from AUR
+  if pacman -Q davinci-resolve &>/dev/null; then
+    ok "AUR package: $(pacman -Q davinci-resolve)"
+  elif pacman -Q davinci-resolve-studio &>/dev/null; then
+    ok "AUR package (Studio): $(pacman -Q davinci-resolve-studio)"
+  else
+    warn "Not installed via AUR — manual install"
+  fi
+else
+  fail "Resolve not found at /opt/resolve"
+  ISSUES=$((ISSUES + 1))
+fi
+
+# ── GPU & OpenCL ─────────────────────────────────────────────────────────────
+section "GPU & OpenCL"
+
+if command -v nvidia-smi &>/dev/null; then
+  gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
+  gpu_mem=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader 2>/dev/null | head -1)
+  gpu_driver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)
+  ok "NVIDIA GPU: ${gpu_name:-unknown}, ${gpu_mem:-?} VRAM"
+  info "Driver: ${gpu_driver:-unknown}"
+else
+  warn "nvidia-smi not found — no NVIDIA GPU or driver"
+fi
+
+if command -v clinfo &>/dev/null; then
+  platforms=$(clinfo -l 2>/dev/null)
+  if [[ -n "$platforms" ]]; then
+    ok "OpenCL platforms detected:"
+    echo "$platforms" | while read -r line; do
+      info "$line"
+    done
+  else
+    fail "No OpenCL platforms found"
+    ISSUES=$((ISSUES + 1))
+  fi
+else
+  warn "clinfo not installed — can't verify OpenCL"
+  info "Install: sudo pacman -S clinfo"
+fi
+
+# Check OpenCL ICDs
+if [[ -d /etc/OpenCL/vendors ]]; then
+  info "OpenCL ICDs: $(ls /etc/OpenCL/vendors/ 2>/dev/null | tr '\n' ' ')"
+fi
+
+# ── PRIME / Hybrid GPU ───────────────────────────────────────────────────────
+section "GPU Offload (PRIME)"
+
+if command -v envycontrol &>/dev/null; then
+  mode=$(cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status 2>/dev/null || echo "unknown")
+  info "Current GPU mode: $(envycontrol --query 2>/dev/null || echo 'unknown')"
+fi
+
+if [[ -f "$HOME/.local/bin/resolve-fix" ]] || [[ -L "$HOME/.local/bin/resolve-fix" ]]; then
+  ok "resolve-fix launcher exists"
+else
+  warn "resolve-fix launcher not found"
+fi
+
+if [[ -f "$HOME/.local/share/applications/com.blackmagicdesign.resolve.desktop" ]]; then
+  ok "Desktop file override exists"
+else
+  warn "No custom desktop file — Resolve may use wrong GPU"
+fi
+
+# ── Library Mismatch ──────────────────────────────────────────────────────────
+section "Library Compatibility"
+
+for lib in libglib-2.0.so.0 libgio-2.0.so.0 libgmodule-2.0.so.0 libgobject-2.0.so.0; do
+  sys_ver=$(readlink /usr/lib/$lib 2>/dev/null || echo "missing")
+  res_ver=$(readlink /opt/resolve/libs/$lib 2>/dev/null || echo "missing")
+  if [[ "$sys_ver" != "missing" ]] && [[ "$res_ver" != "missing" ]]; then
+    sys_num=$(echo "$sys_ver" | grep -oP '\d+\.\d+\.\d+' | head -1)
+    res_num=$(echo "$res_ver" | grep -oP '\d+\.\d+\.\d+' | head -1)
+    if [[ "$sys_num" > "$res_num" ]]; then
+      warn "$lib: system=$sys_ver > bundled=$res_ver (mismatch — use resolve-fix)"
+    else
+      ok "$lib: system=$sys_ver, bundled=$res_ver"
+    fi
+  fi
+done
+
+# ── Codecs ────────────────────────────────────────────────────────────────────
+section "FFmpeg Codecs"
+
+if command -v ffmpeg &>/dev/null; then
+  ok "ffmpeg: $(ffmpeg -hide_banner -version 2>/dev/null | head -1 || echo 'installed')"
+  # Check key encoders (ffmpeg output format: " VFS..D codecname  description")
+  encoders=$(ffmpeg -hide_banner -encoders 2>/dev/null || true)
+  for codec in "dnxhd" "libx264" "libx265" "libsvtav1" "aac" "pcm_s24le" "alac" "libvpx-vp9" "libopus" "flac" "h264_nvenc" "hevc_nvenc"; do
+    if echo "$encoders" | grep -qE "[[:space:]]+${codec}[[:space:]]+"; then
+      ok "Encoder available: $codec"
+    else
+      warn "Encoder missing: $codec"
+    fi
+  done
+  # Check key decoders
+  decoders=$(ffmpeg -hide_banner -decoders 2>/dev/null || true)
+  for codec in "h264" "hevc" "dnxhd" "av1" "vp9" "vp8" "opus" "aac" "flac" "alac" "pcm_s16le" "theora" "wmv" "mpeg2video" "mpeg4" "dvvideo"; do
+    if echo "$decoders" | grep -qE "[[:space:]]+${codec}[[:space:]]+"; then
+      :
+    else
+      warn "Decoder missing: $codec"
+    fi
+  done
+else
+  fail "ffmpeg not found!"
+  ISSUES=$((ISSUES + 1))
+fi
+
+# ── Disk Space ────────────────────────────────────────────────────────────────
+section "Disk Space"
+
+home_free=$(df -h /home 2>/dev/null | tail -1 | awk '{print $4}')
+home_pct=$(df -h /home 2>/dev/null | tail -1 | awk '{print $5}')
+ok "/home: ${home_free} free (${home_pct} used)"
+
+root_free=$(df -h / 2>/dev/null | tail -1 | awk '{print $4}')
+root_pct=$(df -h /home 2>/dev/null | tail -1 | awk '{print $5}')
+ok "/ (root): ${root_free} free"
+
+info "DNxHR HQ ≈ 660 Mbps ≈ 82 MB/s ≈ 5 GB/min of video"
+info "Plan disk space accordingly for transcodes"
+
+# ── Font Paths ────────────────────────────────────────────────────────────────
+section "Font Configuration"
+
+config_file="$HOME/.local/share/DaVinciResolve/configs/config.user.xml"
+if [[ -f "$config_file" ]]; then
+  font_path=$(grep -oP 'FontsPath[^>]*value="[^"]*"' "$config_file" 2>/dev/null | head -1 || echo "")
+  if [[ -n "$font_path" ]]; then
+    echo "$font_path" | grep -q "$HOME/.local/share/fonts" && ok "User fonts in Fusion path" || warn "User fonts NOT in Fusion path — run resolve-fonts"
+    info "$font_path"
+  else
+    warn "No FontsPath entry found — default (system fonts only)"
+  fi
+else
+  warn "Resolve config not found"
+fi
+
+user_font_count=$(find "$HOME/.local/share/fonts" "$HOME/.fonts" -name "*.ttf" -o -name "*.otf" 2>/dev/null | wc -l)
+info "User fonts found: $user_font_count"
+
+# ── Scripts & Tools ──────────────────────────────────────────────────────────
+section "Resolve Toolkit"
+
+for tool in resolve-transcode resolve-audio resolve-export resolve-fix resolve-backup resolve-fonts resolve-watch resolve-info resolve-gui; do
+  if command -v "$tool" &>/dev/null; then
+    ok "$tool"
+  else
+    warn "$tool — not found on PATH"
+  fi
+done
+
+# ── Quick Tips ────────────────────────────────────────────────────────────────
+section "Quick Reference"
+
+echo -e "  ${BOLD}Transcode footage for Resolve:${RESET}"
+echo    "    resolve-transcode /path/to/footage              # DNxHR HQ (default)"
+echo    "    resolve-transcode -c av1 /path/to/footage        # AV1 (4-5x smaller)"
+echo    "    resolve-transcode -c av1 -q hq /path/to/raw      # AV1 high quality"
+echo    "    resolve-transcode -c av1 -q lb -j 4 /path/to/raw  # AV1 proxy, 4 parallel"
+echo    "    resolve-transcode -q hqx -j 4 /path/to/raw      # DNxHR 12-bit, 4 parallel"
+echo
+echo -e "  ${BOLD}Export from Resolve for delivery:${RESET}"
+echo    "    resolve-export -p youtube export.mov             # YouTube H.264"
+echo    "    resolve-export -p h265 export.mov               # H.265 smaller file"
+echo    "    resolve-export -p nvenc export.mov              # NVENC GPU encode (fast)"
+echo    "    resolve-export -p av1 export.mov               # AV1 smallest file"
+echo    "    resolve-export -p archive export.mov           # Near-lossless"
+echo    "    resolve-export -p youtube -r 1080p big.mov      # Force 1080p output"
+echo
+echo -e "  ${BOLD}Auto-transcode watch folder:${RESET}"
+echo    "    resolve-watch ~/Downloads                       # Auto-convert new files"
+echo    "    resolve-watch -c av1 ~/Downloads               # Auto-convert to AV1"
+echo
+echo -e "  ${BOLD}Other tools:${RESET}"
+echo    "    resolve-fix          # Launch with library fix + GPU offload"
+echo    "    resolve-backup       # Backup/restore Resolve settings"
+echo    "    resolve-fonts        # Fix font paths in Fusion"
+echo    "    resolve-audio        # Convert audio files for Resolve"
+echo    "    resolve-info          # This diagnostics screen"
+
+# ── Summary ──────────────────────────────────────────────────────────────────
+echo
+if [[ $ISSUES -eq 0 ]]; then
+  echo -e "${GREEN}${BOLD}All checks passed! Resolve should work correctly.${RESET}"
+else
+  echo -e "${YELLOW}${BOLD}Found $ISSUES issue(s) — review warnings above.${RESET}"
+fi
+echo

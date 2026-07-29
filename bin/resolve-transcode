@@ -1,0 +1,567 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  resolve-transcode — Batch transcode media to DaVinci Resolve-friendly formats
+#                        (Linux / free codec set)
+#
+#  Output codecs (selectable with -c):
+#    dnxhr  → DNxHR .mov  — professional intermediate; large files, lossless
+#    av1    → AV1 .mkv    — modern codec, 4-5x smaller than DNxHR,
+#                           importable directly by Resolve Free on Linux
+#
+#  Audio  → PCM / FLAC / ALAC (lossless, Resolve-compatible)
+#
+#  Features:
+#    • Recursive directory scanning with folder structure mirroring
+#    • Multiple quality profiles (lb, sq, hq, hqx, 444)
+#    • Parallel processing with GNU parallel
+#    • Smart audio handling: copy lossless, transcode AAC/other to PCM/FLAC
+#    • Dry-run mode
+#    • Skip existing output files
+#    • Color-coded output
+#
+#  Usage:
+#    resolve-transcode [OPTIONS] [PATH]
+#
+#  Adapted from ChrisTitusTech/resolve-linux, enhanced for EndeavourOS/Arch
+# =============================================================================
+
+set -euo pipefail
+
+# ── Defaults ──────────────────────────────────────────────────────────────────
+OUTPUT_CODEC="dnxhr"   # dnxhr | av1
+QUALITY="sq"
+PARALLEL_JOBS=1
+DRY_RUN=false
+SEARCH_PATH="."
+OUTPUT_DIR=""
+AUDIO_MODE="auto"   # auto: copy PCM/FLAC, transcode rest | pcm: always PCM | alac: always ALAC | flac: always FLAC
+
+# ── Colour helpers ────────────────────────────────────────────────────────────
+if [[ -t 1 ]]; then
+  RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+  CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
+else
+  RED=''; GREEN=''; YELLOW=''; CYAN=''; BOLD=''; DIM=''; RESET=''
+fi
+
+info()    { echo -e "${CYAN}[INFO]${RESET}  $*"; }
+success() { echo -e "${GREEN}[OK]${RESET}    $*"; }
+warn()    { echo -e "${YELLOW}[WARN]${RESET}  $*"; }
+error()   { echo -e "${RED}[ERR]${RESET}   $*" >&2; }
+header()  { echo -e "\n${BOLD}$*${RESET}"; }
+
+# ── Help ──────────────────────────────────────────────────────────────────────
+usage() {
+cat <<EOF
+${BOLD}resolve-transcode${RESET} — Batch transcode media for DaVinci Resolve on Linux
+
+  ${BOLD}USAGE${RESET}
+    $0 [OPTIONS] <file> [file ...]       # Convert specific files
+    $0 [OPTIONS] <directory>              # Convert all media in directory
+    $0 [OPTIONS]                          # Convert current directory
+
+  ${BOLD}BEHAVIOUR${RESET}
+    If given files, converts each one individually.
+    If given a directory, walks it recursively and converts every media file.
+    Sub-directory structure is mirrored in the output folder.
+    Without arguments, processes the current directory.
+
+  ${BOLD}OPTIONS${RESET}
+    -c CODEC    Output video codec:
+                  dnxhr = DNxHR .mov  — professional intermediate, lossless [DEFAULT]
+                  av1   = AV1 .mkv    — 4-5x smaller, importable by Resolve Free
+    -o DIR      Custom output directory  (default: <PATH>/resolve_ready)
+    -q QUALITY  Quality profile (maps to codec-specific settings):
+                  lb   = proxy / low bitrate    (DNxHR LB / AV1 CRF 35)
+                  sq   = standard quality      (DNxHR SQ / AV1 CRF 30) [DEFAULT]
+                  hq   = high quality          (DNxHR HQ / AV1 CRF 26)
+                  hqx  = 12-bit high quality   (DNxHR HQX / AV1 CRF 22 10-bit)
+                  444  = maximum 4:4:4 quality  (DNxHR 444 / AV1 CRF 20 10-bit)
+    -a MODE     Audio mode:
+                  auto = copy if PCM/FLAC, else transcode to FLAC  [DEFAULT]
+                  pcm  = always transcode audio to PCM s24le
+                  alac = always transcode audio to ALAC (smaller, lossless)
+                  flac = always transcode audio to FLAC (smaller than PCM)
+    -j N        Parallel conversion jobs  (default: 1, requires GNU parallel)
+    -n          Dry-run — show what would be converted, do nothing
+    -h          Show this help
+
+  ${BOLD}EXAMPLES${RESET}
+    $0 video.mp4                           # Convert single file (DNxHR, sq)
+    $0 -c av1 video.mp4                    # Convert to AV1 (much smaller)
+    $0 -c av1 /mnt/footage                # Convert all media to AV1
+    $0 -c av1 -q hq /mnt/raw              # AV1 high quality (CRF 26)
+    $0 -c av1 -q lb /mnt/footage          # AV1 proxy quality (CRF 35, fast)
+    $0 -c av1 -j 4 /mnt/raw               # AV1 with 4 parallel jobs
+    $0 vid1.mp4 vid2.mkv                  # Convert multiple files
+    $0 /mnt/footage                       # Convert all media in folder
+    $0 -o /mnt/edit /mnt/raw             # Custom output location
+    $0 -q hqx -j 4 /mnt/raw              # DNxHR 12-bit, 4 parallel jobs
+    $0 -a alac /mnt/footage               # Use ALAC audio (smaller than PCM)
+    $0 -n .                               # Dry-run to preview
+
+  ${BOLD}OUTPUT FORMATS${RESET}
+    DNxHR mode: Video → DNxHR .mov  (Avid intermediate, lossless, large)
+    AV1 mode:   Video → AV1 .mkv    (modern codec, 4-5x smaller, Resolve-compatible)
+    Audio → PCM s24le / FLAC / ALAC (48 kHz, lossless)
+
+  ${BOLD}SMART AUDIO (default)${RESET}
+    - PCM/FLAC audio tracks → copied as-is (no re-encode)
+    - AAC/Opus/MP3/other → transcoded to FLAC 48kHz (lossless, compact)
+    - Use -a pcm for PCM, -a alac for ALAC, -a flac for FLAC
+
+  ${BOLD}AV1 NOTES${RESET}
+    AV1 output uses SVT-AV1 (CPU encoder, software).
+    AV1 is importable by DaVinci Resolve Free on Linux (GPU-accelerated decode
+    with NVIDIA). Files are 4-5x smaller than DNxHR equivalents.
+    AV1 encoding is slower than DNxHR — use -j N for parallel jobs.
+EOF
+exit 0
+}
+
+# ── Argument parsing ──────────────────────────────────────────────────────────
+while getopts ":c:o:q:a:j:nh" opt; do
+  case $opt in
+    c) OUTPUT_CODEC="$OPTARG" ;;
+    o) OUTPUT_DIR="$OPTARG" ;;
+    q) QUALITY="$OPTARG" ;;
+    a) AUDIO_MODE="$OPTARG" ;;
+    j) PARALLEL_JOBS="$OPTARG" ;;
+    n) DRY_RUN=true ;;
+    h) usage ;;
+    :) error "Option -$OPTARG requires an argument."; exit 1 ;;
+    \?) error "Unknown option: -$OPTARG"; exit 1 ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+# ── Determine mode: file args vs directory scan ────────────────────────────────
+FILE_ARGS=()
+DIR_SET=false
+if [[ $# -gt 0 ]]; then
+  for arg in "$@"; do
+    if [[ -f "$arg" ]]; then
+      FILE_ARGS+=("$(realpath "$arg")")
+    elif [[ -d "$arg" ]]; then
+      SEARCH_PATH="$(realpath "$arg")"
+      DIR_SET=true
+    else
+      error "Not found: $arg"; exit 1
+    fi
+  done
+fi
+
+# If no directory was explicitly set, derive from file args or use cwd
+if ! $DIR_SET; then
+  if [[ ${#FILE_ARGS[@]} -gt 0 ]]; then
+    SEARCH_PATH="$(dirname "${FILE_ARGS[0]}")"
+  else
+    SEARCH_PATH="$(realpath '.')"
+  fi
+fi
+
+# Set default output directory
+if [[ -z "$OUTPUT_DIR" ]]; then
+  OUTPUT_DIR="${SEARCH_PATH}/resolve_ready"
+fi
+OUTPUT_DIR="$(realpath -m "$OUTPUT_DIR")"
+
+# ── Validate quality ─────────────────────────────────────────────────────────
+case "$QUALITY" in
+  lb|sq|hq|hqx|444) ;;
+  *) error "Invalid quality: $QUALITY. Choose lb|sq|hq|hqx|444"; exit 1 ;;
+esac
+
+# ── Validate output codec ────────────────────────────────────────────────
+case "$OUTPUT_CODEC" in
+  dnxhr|av1) ;;
+  *) error "Invalid output codec: $OUTPUT_CODEC. Choose dnxhr|av1"; exit 1 ;;
+esac
+
+# ── Validate audio mode ──────────────────────────────────────────────────────
+case "$AUDIO_MODE" in
+  auto|pcm|alac|flac) ;;
+  *) error "Invalid audio mode: $AUDIO_MODE. Choose auto|pcm|alac|flac"; exit 1 ;;
+esac
+
+# ── Known video / audio extensions ───────────────────────────────────────────
+# Comprehensive list — ffmpeg can decode all of these. When passing files
+# explicitly (not directory scan), the extension filter is bypassed entirely,
+# so ANY file will be attempted regardless of extension.
+VIDEO_EXTS="mp4|mkv|avi|mov|mxf|wmv|flv|webm|ts|m2ts|mts|mpg|mpeg|m4v|3gp|3g2|ogv|ogm|vob|rmvb|rm|asf|divx|dv|f4v|hevc|h264|h265|ivf|mod|tod|m2v|y4m|webp|gif|nut|wtv|bink|bk2|swf|evo|dvr|av1"
+AUDIO_EXTS="mp3|aac|flac|ogg|m4a|wma|aiff|aif|opus|wav|ape|alac|mka|ac3|dts|eac3|amr|au|ra|caf|spx|tta|wv|mpc|ofr|mid|midi|dtshd|truehd|mlp"
+
+# ── Check dependencies ────────────────────────────────────────────────────────
+check_deps() {
+  local missing=()
+  for cmd in ffmpeg ffprobe; do
+    command -v "$cmd" &>/dev/null || missing+=("$cmd")
+  done
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    error "Missing required tools: ${missing[*]}"
+    echo "  Arch: sudo pacman -S ffmpeg" >&2
+    exit 1
+  fi
+
+  local encoders
+  encoders="$(ffmpeg -hide_banner -encoders 2>&1 || true)"
+
+  # Check DNxHR encoder
+  if ! grep -qiE '(^|[[:space:]])dnxhd([[:space:]]|$)' <<<"$encoders"; then
+    error "ffmpeg build does not include the DNxHD/DNxHR encoder."
+    echo "  Arch: sudo pacman -S ffmpeg" >&2
+    exit 1
+  fi
+
+  # Check SVT-AV1 encoder when av1 mode is selected
+  if [[ "$OUTPUT_CODEC" == "av1" ]]; then
+    if ! grep -qiE 'libsvtav1' <<<"$encoders"; then
+      error "ffmpeg build does not include the SVT-AV1 encoder."
+      echo "  Arch: sudo pacman -S svt-av1 ffmpeg" >&2
+      exit 1
+    fi
+  fi
+}
+
+# ── Detect audio codec of a file ─────────────────────────────────────────────
+get_audio_codec() {
+  local file="$1"
+  ffprobe -v quiet -select_streams a:0 \
+    -show_entries stream=codec_name -of csv=p=0 "$file" 2>/dev/null | head -1
+}
+
+# ── Detect media type ─────────────────────────────────────────────────────────
+get_media_type() {
+  local file="$1"
+  local has_video has_audio
+  has_video=$(ffprobe -v quiet -select_streams v:0 \
+    -show_entries stream=codec_type -of csv=p=0 "$file" 2>/dev/null | head -1)
+  has_audio=$(ffprobe -v quiet -select_streams a:0 \
+    -show_entries stream=codec_type -of csv=p=0 "$file" 2>/dev/null | head -1)
+
+  if [[ "$has_video" == "video" ]]; then
+    echo "video"
+  elif [[ "$has_audio" == "audio" ]]; then
+    echo "audio"
+  else
+    echo "unknown"
+  fi
+}
+
+# ── Map quality → ffmpeg DNxHR profile string ─────────────────────────────────
+get_dnxhr_profile() {
+  case "$1" in
+    lb)  echo "dnxhr_lb"  ;;
+    sq)  echo "dnxhr_sq"  ;;
+    hq)  echo "dnxhr_hq"  ;;
+    hqx) echo "dnxhr_hqx" ;;
+    444) echo "dnxhr_444" ;;
+  esac
+}
+
+# ── Map quality → AV1 CRF + SVT preset + pixel format ──────────────────────────
+# Returns: "CRF|SVT_PRESET|PIX_FMT"
+get_av1_params() {
+  case "$1" in
+    lb)  echo "35|8|yuv420p"       ;;
+    sq)  echo "30|6|yuv420p"       ;;
+    hq)  echo "26|4|yuv420p"       ;;
+    hqx) echo "22|2|yuv420p10le"   ;;
+    444) echo "20|1|yuv420p10le"   ;;
+  esac
+}
+
+# ── Get output container extension for current codec ─────────────────────────
+get_output_ext() {
+  case "$OUTPUT_CODEC" in
+    dnxhr) echo "mov" ;;
+    av1)   echo "mkv" ;;
+  esac
+}
+
+# ── Build mirrored output path ────────────────────────────────────────────────
+make_output_path() {
+  local input="$1" ext="$2"
+  local rel_path rel_dir base
+  rel_path=$(realpath --relative-to="$SEARCH_PATH" "$input")
+  rel_dir=$(dirname "$rel_path")
+  base=$(basename "$input")
+  base="${base%.*}"
+  if [[ "$rel_dir" == "." ]]; then
+    echo "${OUTPUT_DIR}/${base}.${ext}"
+  else
+    echo "${OUTPUT_DIR}/${rel_dir}/${base}.${ext}"
+  fi
+}
+
+# ── Build audio args for the current output codec ─────────────────────────────
+# AV1/MKV needs FLAC audio (PCM in MKV works but FLAC is more compact).
+# DNxHR/MOV works with PCM, ALAC, or FLAC.
+build_audio_args() {
+  local input="$1" audio_codec
+  audio_codec=$(get_audio_codec "$input")
+
+  if [[ "$AUDIO_MODE" == "alac" ]]; then
+    echo "-c:a alac"
+  elif [[ "$AUDIO_MODE" == "pcm" ]]; then
+    echo "-c:a pcm_s24le -ar 48000 -ac 2"
+  elif [[ "$AUDIO_MODE" == "flac" ]]; then
+    echo "-c:a flac -ar 48000 -ac 2"
+  else
+    # auto: detect and decide
+    case "$audio_codec" in
+      pcm_*|flac)
+        # Already lossless and Resolve-compatible — copy
+        echo "-c:a copy"
+        ;;
+      alac)
+        echo "-c:a alac"
+        ;;
+      ""|none)
+        echo "-an"
+        ;;
+      *)
+        # AAC, Opus, MP3, etc — transcode to FLAC (compact, lossless, Resolve-compatible)
+        echo "-c:a flac -ar 48000 -ac 2"
+        ;;
+    esac
+  fi
+}
+
+# ── Describe audio action for logging ───────────────────────────────────────
+describe_audio() {
+  local input="$1" audio_codec
+  audio_codec=$(get_audio_codec "$input")
+
+  if [[ "$AUDIO_MODE" == "alac" ]]; then
+    echo "ALAC audio"
+  elif [[ "$AUDIO_MODE" == "pcm" ]]; then
+    echo "PCM 24bit audio"
+  elif [[ "$AUDIO_MODE" == "flac" ]]; then
+    echo "FLAC audio"
+  else
+    case "$audio_codec" in
+      pcm_*|flac) echo "audio: ${audio_codec} → copy" ;;
+      alac)      echo "audio: ALAC" ;;
+      ""|none)   echo "no audio" ;;
+      *)         echo "audio: ${audio_codec} → FLAC" ;;
+    esac
+  fi
+}
+
+# ── Convert VIDEO ─────────────────────────────────────────────────────────────
+convert_video() {
+  local input="$1"
+  local output pix_fmt audio_args audio_desc vcodec_desc
+  local out_ext
+  out_ext=$(get_output_ext)
+  output=$(make_output_path "$input" "$out_ext")
+
+  if [[ -f "$output" ]]; then
+    warn "Skipping (exists): ${output#"$SEARCH_PATH/"}"
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$output")"
+  audio_args=$(build_audio_args "$input")
+  audio_desc=$(describe_audio "$input")
+
+  if [[ "$OUTPUT_CODEC" == "av1" ]]; then
+    # ── AV1 output (SVT-AV1 → MKV) ──────────────────────────────────────────
+    local av1_crf av1_preset av1_pixfmt
+    IFS='|' read -r av1_crf av1_preset av1_pixfmt <<< "$(get_av1_params "$QUALITY")"
+    vcodec_desc="AV1 CRF ${av1_crf} preset ${av1_preset}"
+
+    info "VIDEO  ${input#"$SEARCH_PATH/"}  →  ${output#"$SEARCH_PATH/"}  [${vcodec_desc}] [${audio_desc}]"
+
+    if $DRY_RUN; then
+      echo "       ffmpeg -i \"$input\" -c:v libsvtav1 -crf ${av1_crf} -preset ${av1_preset} -pix_fmt ${av1_pixfmt} ${audio_args} ..."
+      return 0
+    fi
+
+    if ffmpeg -hide_banner -loglevel error -stats \
+        -i "$input" \
+        -map 0:v:0 -map '0:a?' \
+        -c:v libsvtav1 -crf "$av1_crf" -preset "$av1_preset" \
+        -pix_fmt "$av1_pixfmt" \
+        $audio_args \
+        -y "$output" 2>&1; then
+      success "Done: ${output#"$SEARCH_PATH/"}"
+      return 0
+    else
+      error "Failed: $input"
+      rm -f "$output"
+      return 1
+    fi
+
+  else
+    # ── DNxHR output (Avid DNxHR → MOV) ────────────────────────────────────
+    local profile
+    profile=$(get_dnxhr_profile "$QUALITY")
+    vcodec_desc="${profile}"
+
+    pix_fmt="yuv422p"
+    [[ "$QUALITY" == "hqx" ]] && pix_fmt="yuv422p12le"
+    [[ "$QUALITY" == "444" ]] && pix_fmt="yuv444p12le"
+
+    info "VIDEO  ${input#"$SEARCH_PATH/"}  →  ${output#"$SEARCH_PATH/"}  [${profile}] [${audio_desc}]"
+
+    if $DRY_RUN; then
+      echo "       ffmpeg -i \"$input\" -c:v dnxhd -profile:v $profile -pix_fmt $pix_fmt ${audio_args} ..."
+      return 0
+    fi
+
+    if ffmpeg -hide_banner -loglevel error -stats \
+        -i "$input" \
+        -map 0:v:0 -map '0:a?' \
+        -c:v dnxhd -profile:v "$profile" \
+        -pix_fmt "$pix_fmt" \
+        $audio_args \
+        -movflags write_colr \
+        -y "$output" 2>&1; then
+      success "Done: ${output#"$SEARCH_PATH/"}"
+      return 0
+    else
+      error "Failed: $input"
+      rm -f "$output"
+      return 1
+    fi
+  fi
+}
+
+# ── Convert AUDIO ─────────────────────────────────────────────────────────────
+convert_audio() {
+  local input="$1" output
+  output=$(make_output_path "$input" "wav")
+
+  if [[ -f "$output" ]]; then
+    warn "Skipping (exists): ${output#"$SEARCH_PATH/"}"
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$output")"
+  info "AUDIO  ${input#"$SEARCH_PATH/"}  →  ${output#"$SEARCH_PATH/"}"
+
+  if $DRY_RUN; then
+    echo "       ffmpeg -i \"$input\" -c:a pcm_s24le -ar 48000 -ac 2 ..."
+    return 0
+  fi
+
+  if ffmpeg -hide_banner -loglevel error -stats \
+      -i "$input" \
+      -c:a pcm_s24le -ar 48000 -ac 2 \
+      -y "$output" 2>&1; then
+    success "Done: ${output#"$SEARCH_PATH/"}"
+    return 0
+  else
+    error "Failed: $input"
+    rm -f "$output"
+    return 1
+  fi
+}
+
+# ── Collect files ─────────────────────────────────────────────────────────────
+collect_files() {
+  find "$SEARCH_PATH" \
+    -path "$OUTPUT_DIR" -prune \
+    -o -type f -print \
+    | grep -iE "\.(${VIDEO_EXTS}|${AUDIO_EXTS})$" \
+    | sort
+}
+
+# ── Export symbols for GNU parallel ───────────────────────────────────────────
+export -f convert_video convert_audio get_media_type get_audio_codec \
+          make_output_path get_dnxhr_profile get_av1_params get_output_ext \
+          build_audio_args describe_audio info success warn error
+export OUTPUT_DIR OUTPUT_CODEC QUALITY SEARCH_PATH DRY_RUN AUDIO_MODE
+
+# ── Process one file ──────────────────────────────────────────────────────────
+process_file() {
+  local file="$1" mtype
+  mtype=$(get_media_type "$file")
+  case "$mtype" in
+    video) convert_video "$file" ;;
+    audio) convert_audio "$file" ;;
+    *)     warn "Skipping (unrecognised media): $file" ;;
+  esac
+}
+export -f process_file
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+main() {
+  header "=== resolve-transcode ==="
+  check_deps
+
+  # Build the file list: either from explicit args or directory scan
+  local FILES=()
+  if [[ ${#FILE_ARGS[@]} -gt 0 ]]; then
+    # Explicit file arguments
+    for f in "${FILE_ARGS[@]}"; do
+      FILES+=("$f")
+    done
+  else
+    # Directory scan
+    info "Source       : $SEARCH_PATH"
+    mapfile -t FILES < <(collect_files)
+  fi
+
+  info "Output       : $OUTPUT_DIR"
+  info "Codec        : $OUTPUT_CODEC"
+  if [[ "$OUTPUT_CODEC" == "av1" ]]; then
+    local av1_crf av1_preset av1_pixfmt
+    IFS='|' read -r av1_crf av1_preset av1_pixfmt <<< "$(get_av1_params "$QUALITY")"
+    info "AV1 settings : CRF ${av1_crf}, SVT preset ${av1_preset}, ${av1_pixfmt}"
+  else
+    info "DNxHR profile: $QUALITY  ($(get_dnxhr_profile "$QUALITY"))"
+  fi
+  info "Audio mode   : $AUDIO_MODE"
+  info "Parallel jobs: $PARALLEL_JOBS"
+  $DRY_RUN && warn "DRY-RUN MODE — nothing will be converted"
+  echo
+
+  local total=${#FILES[@]}
+
+  if [[ $total -eq 0 ]]; then
+    warn "No media files found"
+    exit 0
+  fi
+
+  info "Found $total file(s) to process"
+  echo
+
+  mkdir -p "$OUTPUT_DIR"
+
+  local ok=0 fail=0 start_time=$SECONDS
+
+  if [[ "$PARALLEL_JOBS" -gt 1 ]] && command -v parallel &>/dev/null; then
+    local joblog
+    joblog=$(mktemp) || { error "Failed to create temporary file"; exit 1; }
+    if printf '%s\n' "${FILES[@]}" \
+      | parallel -j "$PARALLEL_JOBS" --joblog "$joblog" process_file {}; then
+      ok=$(awk 'NR>1 && $7==0' "$joblog" 2>/dev/null | wc -l)
+      fail=$(awk 'NR>1 && $7!=0' "$joblog" 2>/dev/null | wc -l)
+    else
+      error "Parallel processing had failures"
+      ok=$(awk 'NR>1 && $7==0' "$joblog" 2>/dev/null | wc -l)
+      fail=$(awk 'NR>1 && $7!=0' "$joblog" 2>/dev/null | wc -l)
+    fi
+    rm -f "$joblog"
+  else
+    [[ "$PARALLEL_JOBS" -gt 1 ]] && \
+      warn "GNU parallel not found — running sequentially"
+    for file in "${FILES[@]}"; do
+      if process_file "$file"; then
+        ((ok++))
+      else
+        ((fail++))
+      fi
+    done
+  fi
+
+  local elapsed=$(( SECONDS - start_time ))
+  echo
+  header "=== Complete ==="
+  success "Converted: $ok  |  Failed: $fail  |  Time: ${elapsed}s"
+}
+
+main

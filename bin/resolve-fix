@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  resolve-fix — Launch DaVinci Resolve with library fix + GPU offload
+#
+#  On Arch/EndeavourOS, Resolve bundles outdated glib/gio libraries that crash
+#  on modern systems. This wrapper preloads the system's newer libraries and
+#  sets up NVIDIA PRIME offload for hybrid GPU laptops.
+#
+#  Adapted from ChrisTitusTech/resolve-linux, customized for this system.
+#
+#  This script replaces the old resolve-prime launcher with added library fix.
+# =============================================================================
+
+set -euo pipefail
+
+# ── Library mismatch fix ──────────────────────────────────────────────────────
+# Resolve bundles glib 2.80.x; Arch has 2.88.x.
+# Preloading system libs forces Resolve to use the compatible newer versions.
+# Determine the correct lib paths for this architecture
+LIBDIR="/usr/lib"
+[[ "$(uname -m)" == "x86_64" ]] && [[ -d "/usr/lib64" ]] && LIBDIR="/usr/lib64"
+
+# Build LD_PRELOAD with system libraries that override Resolve's bundled ones
+PRELOAD_LIBS=(
+  "${LIBDIR}/libglib-2.0.so.0"
+  "${LIBDIR}/libgobject-2.0.so.0"
+  "${LIBDIR}/libgio-2.0.so.0"
+  "${LIBDIR}/libgmodule-2.0.so.0"
+)
+
+# Only preload libraries that actually exist
+ACTUAL_PRELOAD=()
+for lib in "${PRELOAD_LIBS[@]}"; do
+  if [[ -f "$lib" ]]; then
+    ACTUAL_PRELOAD+=("$lib")
+  else
+    echo "resolve-fix: WARNING — $lib not found, skipping" >&2
+  fi
+done
+
+# NOTE: Do NOT set LD_LIBRARY_PATH here. Setting it to /usr/lib64 forces ALL
+# system libraries to load before Resolve's bundled ones — including GStreamer,
+# which causes: undefined symbol: gst_log_context_get_category
+# LD_PRELOAD alone is sufficient — it only overrides the specific libs listed.
+if [[ ${#ACTUAL_PRELOAD[@]} -gt 0 ]]; then
+  export LD_PRELOAD=$(IFS=:; echo "${ACTUAL_PRELOAD[*]}")
+fi
+
+# ── NVIDIA PRIME GPU offload ──────────────────────────────────────────────────
+# Hybrid laptop: RTX 3050 dGPU + Intel iGPU
+# Force Resolve to use NVIDIA for both OpenGL UI and CUDA compute
+export __NV_PRIME_RENDER_OFFLOAD=1
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+export __VK_LAYER_NV_optimus=NVIDIA_only
+
+# ── Display scaling ───────────────────────────────────────────────────────────
+# Resolve's UI is tiny on HiDPI; scale to 125%
+#  Display scaling: DisplayScale=125 in config.user.xml handles internal UI.
+#  QT_SCALE_FACTOR must be 1.0 — it COMPOUNDS with DisplayScale.
+#  (1.25 * 125% = 1.56x which is too big; 1.0 * 125% = clean 1.25x)
+export QT_AUTO_SCREEN_SCALE_FACTOR=1
+export QT_SCALE_FACTOR=1.0
+
+# ── libc++ fix for Resolve 21+ ───────────────────────────────────────────────
+# Resolve 21+ bundles its own libc++.so.1 that can conflict with the system's
+# version, causing: undefined symbol: _ZNSt3__117bad_function_callD1Ev
+# Remove the bundled lib to force using system libc++
+RESOLVE_LIBCXX="/opt/resolve/libs/libc++.so.1"
+if [[ -f "$RESOLVE_LIBCXX" ]]; then
+  # Check if system has libc++
+  if [[ -f "${LIBDIR}/libc++.so.1" ]]; then
+    ACTUAL_PRELOAD+=("${LIBDIR}/libc++.so.1")
+    export LD_PRELOAD=$(IFS=:; echo "${ACTUAL_PRELOAD[*]}")
+  fi
+fi
+
+# ── Wayland / X11 compatibility ────────────────────────────────────────────────
+# Resolve does not support Wayland natively and crashes with:
+#   qt.qpa.plugin: Could not find the Qt platform plugin "wayland"
+# Force X11 backend via XCB
+export QT_QPA_PLATFORM=xcb
+
+# ── Launch Resolve ───────────────────────────────────────────────────────────
+echo "resolve-fix: Launching DaVinci Resolve with:" >&2
+echo "  LD_PRELOAD = ${LD_PRELOAD:-none}" >&2
+echo "  PRIME offload = enabled (NVIDIA RTX 3050)" >&2
+echo "  QT_QPA_PLATFORM = xcb (forced X11)" >&2
+echo "  QT_SCALE_FACTOR = 1.0 (don't compound with DisplayScale)" >&2
+
+exec /opt/resolve/bin/resolve "$@"
