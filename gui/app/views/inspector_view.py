@@ -193,30 +193,7 @@ class InspectorView(QWidget):
                 row_layout.addWidget(lbl_text, 1)
                 c_box.addLayout(row_layout)
 
-        # Fix section with command
-        if compat["verdict"] != "full":
-            c_box.addSpacing(4)
-            fix_title = QLabel("Fix", compat_card)
-            fix_title.setStyleSheet("font-size: 11px; font-weight: 600; color: #8c90a4; text-transform: uppercase;")
-            c_box.addWidget(fix_title)
 
-            cmd_box = QLabel(compat_card)
-            cmd_box.setWordWrap(True)
-            cmd_box.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            cmd_box.setStyleSheet("""
-                background-color: #14161f;
-                border-radius: 4px;
-                padding: 8px;
-                border: 1px solid #20232d;
-                font-family: monospace;
-                font-size: 12px;
-                color: #00e5ff;
-            """)
-            if compat["verdict"] == "partial_audio":
-                cmd_box.setText(f'resolve-audio "{file_path}"')
-            else:
-                cmd_box.setText(f'resolve-transcode "{file_path}"')
-            c_box.addWidget(cmd_box)
 
         self.scroll_layout.addWidget(compat_card)
 

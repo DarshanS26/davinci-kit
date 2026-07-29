@@ -102,8 +102,8 @@ class TopBar(QWidget):
         # GPU Info
         gpu = results["gpu"]
         if gpu["available"]:
-            self.lbl_gpu.setText(f"🟢 GPU: {gpu['gpu_name']} ({gpu['vram_used']}/{gpu['vram_total']})")
-            self.lbl_gpu.setToolTip(f"NVIDIA Driver: {gpu['driver']}\nVRAM: {gpu['vram_used']} used of {gpu['vram_total']}")
+            self.lbl_gpu.setText(f"🟢 GPU: {gpu['gpu_name']}")
+            self.lbl_gpu.setToolTip(f"NVIDIA Driver: {gpu['driver']}\nTotal VRAM: {gpu['vram_total']}")
         else:
             self.lbl_gpu.setText("🟡 GPU: Software / Integrated")
             self.lbl_gpu.setToolTip("No NVIDIA GPU detected via nvidia-smi")

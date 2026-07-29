@@ -59,6 +59,7 @@ class ElidedLabel(QLabel):
 
 class FileQueueItemWidget(QWidget):
     toggled = pyqtSignal(str, bool)
+    remove_clicked = pyqtSignal(str)
 
     def __init__(self, meta: dict, parent=None):
         super().__init__(parent)
@@ -113,11 +114,42 @@ class FileQueueItemWidget(QWidget):
         info_box.addWidget(lbl_name)
         info_box.addWidget(lbl_sub)
 
+        # Remove button
+        self.btn_delete = QPushButton(self)
+        self.btn_delete.setFixedSize(28, 28)
+        self.btn_delete.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_delete.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                border-radius: 4px;
+                color: #8c90a4;
+                font-size: 20px;
+                font-weight: bold;
+                padding: 0px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 82, 82, 0.12);
+                color: #ff5252;
+            }
+            QPushButton:pressed {
+                background-color: rgba(255, 82, 82, 0.22);
+                color: #ff5252;
+            }
+        """)
+        self.btn_delete.setText("×")
+        self.btn_delete.setToolTip("Remove file from queue")
+        self.btn_delete.clicked.connect(self._on_remove_clicked)
+
         layout.addWidget(self.chk)
         layout.addLayout(info_box, 1)
+        layout.addWidget(self.btn_delete)
 
     def _on_toggled(self, checked):
         self.toggled.emit(self.meta.get("path", ""), checked)
+
+    def _on_remove_clicked(self):
+        self.remove_clicked.emit(self.meta.get("path", ""))
 
 class FileQueue(QFrame):
     queue_changed = pyqtSignal()
@@ -147,17 +179,11 @@ class FileQueue(QFrame):
         hdr_layout.addWidget(lbl_list_title)
         hdr_layout.addStretch()
 
-        btn_remove = QPushButton("Remove Selected", self)
-        btn_remove.setObjectName("secondaryBtn")
-        btn_remove.setStyleSheet("padding: 3px 8px; font-size: 11px;")
-        btn_remove.clicked.connect(self.remove_selected)
-
         btn_clear = QPushButton("Clear All", self)
         btn_clear.setObjectName("secondaryBtn")
         btn_clear.setStyleSheet("padding: 3px 8px; font-size: 11px;")
         btn_clear.clicked.connect(self.clear_all)
 
-        hdr_layout.addWidget(btn_remove)
         hdr_layout.addWidget(btn_clear)
         layout.addLayout(hdr_layout)
 
@@ -214,6 +240,7 @@ class FileQueue(QFrame):
         item = QListWidgetItem(self.list_widget)
         item_widget = FileQueueItemWidget(meta, self.list_widget)
         item_widget.toggled.connect(self._set_path_enabled)
+        item_widget.remove_clicked.connect(self.remove_path)
         self.list_widget.setItemWidget(item, item_widget)
         item.setSizeHint(item_widget.sizeHint())
         self.queue_changed.emit()
@@ -237,10 +264,11 @@ class FileQueue(QFrame):
         self._update_summary()
         self.queue_changed.emit()
 
-    def remove_selected(self):
-        selected_rows = [self.list_widget.row(item) for item in self.list_widget.selectedItems()]
-        for row in sorted(selected_rows, reverse=True):
-            self.remove_row(row)
+    def remove_path(self, path: str):
+        for i, m in enumerate(self.selected_files_meta):
+            if m["path"] == path:
+                self.remove_row(i)
+                break
 
     def clear_all(self):
         # Stop any active probe workers
@@ -257,7 +285,7 @@ class FileQueue(QFrame):
 
     def _update_summary(self):
         if not self.selected_files_meta:
-            self.lbl_summary.setText("0 files queued")
+            self.lbl_summary.setText("No files queued")
             return
         total_count = len(self.selected_files_meta)
         selected_count = sum(1 for m in self.selected_files_meta if m["path"] in self.enabled_paths)
@@ -270,8 +298,9 @@ class FileQueue(QFrame):
         dur_str = f"{hrs:02d}:{mins:02d}:{secs:02d}" if hrs > 0 else f"{mins:02d}:{secs:02d}"
 
         self.lbl_summary.setText(
-            f"📁 {selected_count} selected / {total_count} queued  •  "
-            f"{format_size(selected_bytes)} selected  •  {dur_str} selected"
+            f"📁 {selected_count} of {total_count} selected  •  "
+            f"Size: {format_size(selected_bytes)}  •  "
+            f"Duration: {dur_str}"
         )
 
     def _show_context_menu(self, pos):

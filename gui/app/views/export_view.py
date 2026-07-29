@@ -17,7 +17,7 @@ except ImportError:
     from PySide6.QtCore import Qt, Signal as pyqtSignal
 
 from ..components.file_queue import FileQueue
-from ..backend.system import get_bin_path
+from ..backend.system import get_bin_path, check_gpu_info
 from ..backend.runner import ProcessRunnerThread
 from ..backend.inspector import calculate_estimated_output, format_size
 
@@ -64,34 +64,64 @@ class ExportView(QWidget):
         res_label = QLabel("Resolution:", right_box)
         res_label.setFixedWidth(110)
         self.combo_res = QComboBox(right_box)
-        self.combo_res.addItem("Original (No Scaling) [Default]", "original")
-        self.combo_res.addItem("1080p — 1920x1080 (Full HD)", "1080p")
-        self.combo_res.addItem("4K — 3840x2160 (Ultra HD)", "4k")
-        self.combo_res.addItem("1440p — 2560x1440 (QHD)", "1440p")
-        self.combo_res.addItem("720p — 1280x720 (HD)", "720p")
-        self.combo_res.addItem("480p — 854x480 (SD)", "480p")
+        self.combo_res.addItem("Original [Default]", "original")
+        self.combo_res.addItem("1080p", "1080p")
+        self.combo_res.addItem("4K", "4k")
+        self.combo_res.addItem("1440p", "1440p")
+        self.combo_res.addItem("720p", "720p")
+        self.combo_res.addItem("480p", "480p")
         self.combo_res.currentIndexChanged.connect(self._update_estimates)
         res_layout.addWidget(res_label)
         res_layout.addWidget(self.combo_res, 1)
         right_layout.addLayout(res_layout)
 
-        # Delivery Codec Combo (Single control per setting)
+
+        # Check GPU availability
+        gpu = check_gpu_info()
+        has_nvidia = gpu.get("available", False)
+
+        # Video Codec Preset Combo (Single control per setting)
         p_layout = QHBoxLayout()
-        p_label = QLabel("Delivery Codec:", right_box)
+        p_label = QLabel("Video Codec:", right_box)
         p_label.setFixedWidth(110)
         self.combo_preset = QComboBox(right_box)
-        self.combo_preset.addItem("NVENC H.264 (MP4) — Fast NVIDIA GPU Hardware Encode [Default]", "nvenc")
-        self.combo_preset.addItem("NVENC H.265 (MP4) — Fast NVIDIA GPU Hardware Encode", "nvenc265")
-        self.combo_preset.addItem("H.264 (MP4) — Web & YouTube Delivery (CPU)", "youtube")
-        self.combo_preset.addItem("H.265 / HEVC (MP4) — High Efficiency Web Delivery (CPU)", "h265")
-        self.combo_preset.addItem("SVT-AV1 (MP4) — Modern Ultra-Compact Codec", "av1")
-        self.combo_preset.addItem("ProRes 422 (MOV) — 10-Bit Intermediate Master", "prores")
-        self.combo_preset.addItem("VP9 (WebM) — Open Web Streaming", "webm")
-        self.combo_preset.addItem("Archive (MKV) — Near Lossless (H.264 + FLAC)", "archive")
+        self.combo_preset.addItem(f"H.264 NVENC (GPU){' [Default]' if has_nvidia else ''}", "nvenc")
+        self.combo_preset.addItem("H.265 NVENC (GPU)", "nvenc265")
+        self.combo_preset.addItem(f"H.264 (CPU){' [Default]' if not has_nvidia else ''}", "youtube")
+        self.combo_preset.addItem("H.265 (CPU)", "h265")
+        self.combo_preset.addItem("AV1", "av1")
+        self.combo_preset.addItem("ProRes 422", "prores")
+        self.combo_preset.addItem("VP9 (WebM)", "webm")
+        self.combo_preset.addItem("Archive (MKV)", "archive")
         self.combo_preset.currentIndexChanged.connect(self._update_estimates)
+
+        if has_nvidia:
+            self.combo_preset.setCurrentIndex(0) # nvenc
+        else:
+            self.combo_preset.setCurrentIndex(2) # youtube
+
         p_layout.addWidget(p_label)
         p_layout.addWidget(self.combo_preset, 1)
         right_layout.addLayout(p_layout)
+
+        # Audio Codec Combo
+        audio_row = QHBoxLayout()
+        a_label = QLabel("Audio Codec:", right_box)
+        a_label.setFixedWidth(110)
+        self.combo_audio = QComboBox(right_box)
+        self.combo_audio.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.combo_audio.setMinimumContentsLength(15)
+        self.combo_audio.addItem("Preset Default [Default]", "")
+        self.combo_audio.addItem("AAC 192k", "aac")
+        self.combo_audio.addItem("PCM 24-bit", "pcm_s24le")
+        self.combo_audio.addItem("FLAC", "flac")
+        self.combo_audio.addItem("ALAC", "alac")
+        self.combo_audio.addItem("Opus 128k", "libopus")
+        self.combo_audio.addItem("MP3 320k", "libmp3lame")
+        self.combo_audio.currentIndexChanged.connect(self._update_estimates)
+        audio_row.addWidget(a_label)
+        audio_row.addWidget(self.combo_audio, 1)
+        right_layout.addLayout(audio_row)
 
         # Parallel Jobs & Custom CRF
         opt_row = QHBoxLayout()
@@ -116,24 +146,6 @@ class ExportView(QWidget):
         opt_row.addWidget(self.chk_crf)
         opt_row.addWidget(self.spin_crf)
         right_layout.addLayout(opt_row)
-
-        # Audio Override
-        audio_row = QHBoxLayout()
-        a_label = QLabel("Audio Codec:", right_box)
-        a_label.setFixedWidth(110)
-        self.combo_audio = QComboBox(right_box)
-        self.combo_audio.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-        self.combo_audio.setMinimumContentsLength(15)
-        self.combo_audio.addItem("Preset Default [Default]", "")
-        self.combo_audio.addItem("AAC — 192 kbps (universal web)", "aac")
-        self.combo_audio.addItem("PCM — 24-bit lossless", "pcm_s24le")
-        self.combo_audio.addItem("FLAC — lossless compressed", "flac")
-        self.combo_audio.addItem("ALAC — Apple lossless", "alac")
-        self.combo_audio.addItem("Opus — 128 kbps (compact)", "libopus")
-        self.combo_audio.addItem("MP3 — 320 kbps (compact lossy)", "libmp3lame")
-        audio_row.addWidget(a_label)
-        audio_row.addWidget(self.combo_audio, 1)
-        right_layout.addLayout(audio_row)
 
         # Output Folder
         out_layout = QHBoxLayout()
@@ -189,9 +201,11 @@ class ExportView(QWidget):
         main_layout.addWidget(splitter)
 
     def _browse_output(self):
-        default_dir = os.path.expanduser("~/Downloads") if os.path.exists(os.path.expanduser("~/Downloads")) else os.path.expanduser("~")
+        from ..components.drop_zone import DropZone
+        default_dir = DropZone.get_default_dir()
         folder = QFileDialog.getExistingDirectory(self, "Select Output Directory", default_dir)
         if folder:
+            DropZone.save_last_dir(folder)
             self.txt_out_dir.setText(folder)
 
     def _update_estimates(self):

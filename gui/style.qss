@@ -197,19 +197,25 @@ QCheckBox::indicator {
     background-color: #0b0c10;
 }
 
-QCheckBox::indicator:hover {
-    border-color: #00e5ff;
-    background-color: #121520;
-}
-
 QCheckBox::indicator:unchecked {
     background-color: #0b0c10;
     border: 1.5px solid #3d4154;
 }
 
+QCheckBox::indicator:unchecked:hover {
+    border-color: #00e5ff;
+    background-color: #121520;
+}
+
 QCheckBox::indicator:checked {
-    background-color: #0b0c10;
+    background-color: #00e5ff;
     border: 1.5px solid #00e5ff;
+    image: url(__CHECK_SVG__);
+}
+
+QCheckBox::indicator:checked:hover {
+    background-color: #33ebff;
+    border: 1.5px solid #33ebff;
     image: url(__CHECK_SVG__);
 }
 
