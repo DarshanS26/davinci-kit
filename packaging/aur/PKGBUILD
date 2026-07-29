@@ -30,11 +30,11 @@ package() {
 
   # Expose binaries in /usr/bin via symlink
   install -dm755 "$pkgdir/usr/bin"
-  for tool in "$pkgdir"/usr/share/resolve-kit/bin/resolve-*; do
+  for tool in bin/resolve-* bin/davinci-kit bin/davinci-kit-update; do
     ln -s "/usr/share/resolve-kit/bin/$(basename "$tool")" "$pkgdir/usr/bin/$(basename "$tool")"
   done
 
-  # Desktop file (patch Icon to resolve-kit)
+  # Desktop file (patch Icon to davinci-kit)
   sed -i 's|Icon=.*|Icon=davinci-kit|' davinci-kit.desktop
   install -Dm644 davinci-kit.desktop "$pkgdir/usr/share/applications/davinci-kit.desktop"
 

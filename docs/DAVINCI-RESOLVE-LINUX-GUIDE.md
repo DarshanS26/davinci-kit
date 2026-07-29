@@ -770,7 +770,7 @@ If your desktop needs 125% Resolve UI scaling, set `DisplayScale=125` inside `~/
 
 | Tool | Purpose |
 |---|---|
-| `resolve-gui` | Desktop GUI for the toolkit |
+| `davinci-kit` | Desktop GUI for the toolkit |
 | `resolve-transcode` | Batch transcode media for import |
 | `resolve-audio` | Convert audio files to Resolve-friendly formats |
 | `resolve-export` | Convert Resolve renders for delivery |

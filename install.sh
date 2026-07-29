@@ -36,7 +36,7 @@ check_cmd() {
 # ---- scripts list -----------------------------------------------------------
 
 scripts=(
-  "resolve-gui"
+  "davinci-kit"
   "resolve-transcode"
   "resolve-audio"
   "resolve-export"
@@ -45,7 +45,7 @@ scripts=(
   "resolve-fonts"
   "resolve-watch"
   "resolve-info"
-  "resolve-kit-update"
+  "davinci-kit-update"
 )
 
 # =============================================================================
@@ -88,7 +88,7 @@ else
 
   check_cmd ffmpeg  "required for transcode/export/audio/watch"     || missing_required=1
   check_cmd ffprobe "required for transcode/export/audio/watch"     || missing_required=1
-  check_cmd python3 "required for resolve-gui (GUI)"                || missing_required=1
+  check_cmd python3 "required for davinci-kit (GUI)"                || missing_required=1
 
   # GUI requires PyQt6 or PySide6 — check if python3 can import either
   if command -v python3 &>/dev/null; then
@@ -97,7 +97,7 @@ else
     elif python3 -c "import PySide6" 2>/dev/null; then
       ok "PySide6 found (GUI backend)"
     else
-      warn "PyQt6/PySide6 not found — resolve-gui will not work"
+      warn "PyQt6/PySide6 not found — davinci-kit will not work"
       warn "  Install one of: python-pyqt6  or  python-pyside6"
     fi
   fi
@@ -172,7 +172,7 @@ Type=Application
 Name=DaVinci Resolve Kit
 GenericName=DaVinci Resolve Linux Studio Toolkit
 Comment=Transcode, export, diagnose, and optimize DaVinci Resolve on Linux
-Exec=${BIN_DIR}/resolve-gui
+Exec=${BIN_DIR}/davinci-kit
 Icon=davinci-kit
 StartupWMClass=davinci-kit
 Terminal=false
@@ -197,7 +197,7 @@ DESKTOP
   # ---- summary --------------------------------------------------------------
   echo
   echo "Installed! Available commands:"
-  echo "  resolve-gui        — Graphical interface studio for resolve-kit"
+  echo "  davinci-kit        — Graphical interface studio"
   echo "  resolve-transcode  — Batch transcode media for Resolve (DNxHR / AV1)"
   echo "  resolve-audio      — Batch convert audio files for Resolve (WAV/FLAC/ALAC/MP3)"
   echo "  resolve-export     — Convert Resolve exports for delivery (H.264/H.265/AV1/NVENC)"
@@ -206,5 +206,5 @@ DESKTOP
   echo "  resolve-fonts      — Fix font paths in Fusion"
   echo "  resolve-watch      — Auto-transcode watch folder (DNxHR / AV1)"
   echo "  resolve-info       — System diagnostics"
-  echo "  resolve-kit-update — Update resolve-kit via git"
+  echo "  davinci-kit-update — Update davinci-kit via git"
 fi

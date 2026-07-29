@@ -91,7 +91,7 @@ yay -S resolve-kit
 ### Update
 
 ```bash
-resolve-kit-update
+davinci-kit-update
 ```
 
 ### Uninstall
@@ -105,7 +105,7 @@ resolve-kit-update
 Launch the GUI from your applications menu (look for **DaVinci Resolve Kit**) or run:
 
 ```bash
-resolve-gui
+davinci-kit
 ```
 
 The GUI has four tabs:
@@ -178,7 +178,7 @@ All features are also available as command-line tools. These are useful for scri
 
 | Command | Purpose |
 |---|---|
-| `resolve-gui` | Launch the desktop GUI |
+| `davinci-kit` | Launch the desktop GUI |
 | `resolve-transcode` | Batch transcode media to DNxHR or AV1 |
 | `resolve-audio` | Batch convert audio to WAV, FLAC, ALAC, or MP3 |
 | `resolve-export` | Convert Resolve renders to delivery formats |
@@ -187,7 +187,7 @@ All features are also available as command-line tools. These are useful for scri
 | `resolve-fonts` | Add user font directories to Resolve/Fusion |
 | `resolve-watch` | Auto-transcode files in a watched folder |
 | `resolve-info` | Print system diagnostics |
-| `resolve-kit-update` | Update via git |
+| `davinci-kit-update` | Update via git |
 
 Transcode footage:
 

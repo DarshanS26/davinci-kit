@@ -48,7 +48,7 @@ cp packaging/davinci-kit.svg "$APPDIR/"
 ln -sf davinci-kit.svg "$APPDIR/.DirIcon"
 
 # Symlink entry point inside usr/bin
-ln -sf ../share/resolve-kit/bin/resolve-gui "$APPDIR/usr/bin/resolve-kit"
+ln -sf ../share/resolve-kit/bin/davinci-kit "$APPDIR/usr/bin/davinci-kit"
 
 # 6. Locate or download appimagetool
 if ! command -v appimagetool >/dev/null 2>&1; then

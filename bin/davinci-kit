@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  resolve-gui — Graphical interface launcher for resolve-kit
+#  davinci-kit — Graphical interface launcher for davinci-kit
 # =============================================================================
 
 set -euo pipefail
