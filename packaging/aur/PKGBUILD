@@ -4,7 +4,7 @@ pkgver=1.0.0
 pkgrel=1
 pkgdesc="DaVinci Resolve Linux toolkit — transcode, export, diagnose, and optimize"
 arch=('any')
-url="https://github.com/DarshanS26/resolve-kit"
+url="https://github.com/DarshanS26/davinci-kit"
 license=('MIT')
 depends=('bash' 'ffmpeg' 'python' 'desktop-file-utils')
 optdepends=(
@@ -15,7 +15,7 @@ optdepends=(
   'clinfo: OpenCL diagnostics in resolve-info'
   'nvidia-utils: NVIDIA GPU diagnostics in resolve-info'
 )
-source=("$pkgname-$pkgver.tar.gz::https://github.com/DarshanS26/resolve-kit/archive/refs/tags/v$pkgver.tar.gz")
+source=("$pkgname-$pkgver.tar.gz::https://github.com/DarshanS26/davinci-kit/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 install=resolve-kit.install
 
@@ -35,9 +35,9 @@ package() {
   done
 
   # Desktop file (patch Icon to resolve-kit)
-  sed -i 's|Icon=.*|Icon=resolve-kit|' davinci-kit.desktop
+  sed -i 's|Icon=.*|Icon=davinci-kit|' davinci-kit.desktop
   install -Dm644 davinci-kit.desktop "$pkgdir/usr/share/applications/davinci-kit.desktop"
 
   # SVG Icon
-  install -Dm644 packaging/resolve-kit.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/resolve-kit.svg"
+  install -Dm644 packaging/davinci-kit.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/davinci-kit.svg"
 }

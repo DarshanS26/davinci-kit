@@ -54,13 +54,16 @@ class ProbeWorker(QThread):
 
 class ElidedLabel(QLabel):
     def __init__(self, text="", parent=None):
-        super().__init__(parent)
+        super().__init__(text, parent)
         self._raw_text = text
+        self._last_width = -1
         self.setMinimumWidth(10)
         self.setText(text)
 
     def setText(self, text):
         self._raw_text = text
+        self._last_width = -1
+        super().setText(text)
         self._update_elided()
 
     def resizeEvent(self, event):
@@ -69,7 +72,11 @@ class ElidedLabel(QLabel):
 
     def _update_elided(self):
         metrics = QFontMetrics(self.font())
-        elided = metrics.elidedText(self._raw_text, Qt.TextElideMode.ElideMiddle, max(10, self.width() - 4))
+        w = max(10, self.width())
+        if w == self._last_width:
+            return
+        self._last_width = w
+        elided = metrics.elidedText(self._raw_text, Qt.TextElideMode.ElideMiddle, w)
         super().setText(elided)
 
 class FileQueueItemWidget(QWidget):
@@ -354,6 +361,25 @@ class FileQueue(QFrame):
         menu.addAction(act_folder)
         menu.addAction(act_copy)
         menu.exec(QCursor.pos())
+
+    def set_paths(self, paths: list):
+        """Sync queue to exactly these paths. Adds new, removes stale."""
+        existing = {m["path"] for m in self.selected_files_meta}
+        new_paths = set(paths) - existing
+        stale_paths = existing - set(paths)
+
+        # Remove stale
+        for path in stale_paths:
+            for i, m in enumerate(self.selected_files_meta):
+                if m["path"] == path:
+                    self.remove_row(i)
+                    break
+
+        # Add new
+        if new_paths:
+            self.add_paths(list(new_paths))
+
+        self._update_summary()
 
     def get_selected_metadata(self) -> list:
         return [m for m in self.selected_files_meta if m["path"] in self.enabled_paths]

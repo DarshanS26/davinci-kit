@@ -29,7 +29,7 @@ def main():
     app.setDesktopFileName("davinci-kit")
 
     # Set Application Window Dock Icon
-    our_icon = PROJECT_ROOT / "gui" / "resources" / "resolve-kit.svg"
+    our_icon = PROJECT_ROOT / "gui" / "resources" / "davinci-kit.svg"
     icon_path = str(our_icon) if our_icon.exists() else "/opt/resolve/graphics/DV_Resolve.png"
     if os.path.exists(icon_path):
         app_icon = QIcon(icon_path)

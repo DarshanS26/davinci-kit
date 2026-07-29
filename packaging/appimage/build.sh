@@ -44,8 +44,8 @@ find "$APPDIR" -name "*.pyc" -delete 2>/dev/null || true
 cp packaging/appimage/AppRun "$APPDIR/"
 chmod +x "$APPDIR/AppRun"
 cp packaging/appimage/resolve-kit.desktop "$APPDIR/"
-cp packaging/resolve-kit.svg "$APPDIR/"
-ln -sf resolve-kit.svg "$APPDIR/.DirIcon"
+cp packaging/davinci-kit.svg "$APPDIR/"
+ln -sf davinci-kit.svg "$APPDIR/.DirIcon"
 
 # Symlink entry point inside usr/bin
 ln -sf ../share/resolve-kit/bin/resolve-gui "$APPDIR/usr/bin/resolve-kit"

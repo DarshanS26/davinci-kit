@@ -39,7 +39,7 @@ class MainWindow(QMainWindow):
         self.resize(1140, 700)
         self.setMinimumSize(900, 580)
 
-        our_icon = _PROJECT_ROOT / "gui" / "resources" / "resolve-kit.svg"
+        our_icon = _PROJECT_ROOT / "gui" / "resources" / "davinci-kit.svg"
         icon_path = str(our_icon) if our_icon.exists() else "/opt/resolve/graphics/DV_Resolve.png"
         self.setWindowIcon(QIcon(icon_path))
 
@@ -122,31 +122,11 @@ class MainWindow(QMainWindow):
         self._update_status_bar_summary()
 
     def _on_queue_updated(self):
-        # Sync files from Transcode, Export, and Audio tabs into Inspector.
-        # Collect the union of all queued paths across the three workflow tabs
-        # (all queued, not just enabled — Inspector lets the user decide selection).
-        seen = set()
         paths_to_sync = []
         for view in [self.view_transcode, self.view_export, self.view_audio]:
-            for m in view.file_queue.get_all_metadata():
-                if m["path"] not in seen:
-                    seen.add(m["path"])
-                    paths_to_sync.append(m["path"])
-
-        # Sync Inspector queue: remove stale paths, add new ones
-        inspector_queue = self.view_inspector.file_queue
-        current_paths = {m["path"] for m in inspector_queue.get_all_metadata()}
-
-        # Remove paths no longer in any workflow queue
-        stale = current_paths - seen
-        for path in stale:
-            inspector_queue.remove_path(path)
-
-        # Add new paths not yet in Inspector
-        new_paths = [p for p in paths_to_sync if p not in current_paths]
-        if new_paths:
-            inspector_queue.add_paths(new_paths)
-
+            for m in view.file_queue.get_selected_metadata():
+                paths_to_sync.append(m["path"])
+        self.view_inspector.file_queue.set_paths(paths_to_sync)
         self._update_status_bar_summary()
 
     def _update_status_bar_summary(self):

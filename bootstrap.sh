@@ -9,7 +9,7 @@ if ! command -v git >/dev/null 2>&1; then
 fi
 
 DEST="${RESOLVE_KIT_HOME:-$HOME/.local/share/resolve-kit}"
-REPO_URL="${RESOLVE_KIT_REPO:-https://github.com/DarshanS26/resolve-kit.git}"
+REPO_URL="${RESOLVE_KIT_REPO:-https://github.com/DarshanS26/davinci-kit.git}"
 BRANCH="${RESOLVE_KIT_BRANCH:-main}"
 
 if [ -d "$DEST" ]; then

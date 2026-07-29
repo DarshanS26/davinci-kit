@@ -65,7 +65,7 @@ Package names vary by distro. `install.sh` checks dependencies and warns if some
 ### One-line installer
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/DarshanS26/resolve-kit/main/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DarshanS26/davinci-kit/main/bootstrap.sh | bash
 ```
 
 This clones the repo to `~/.local/share/resolve-kit`, symlinks all tools to `~/.local/bin`, and installs a desktop entry.
@@ -73,7 +73,7 @@ This clones the repo to `~/.local/share/resolve-kit`, symlinks all tools to `~/.
 ### Manual git install
 
 ```bash
-git clone https://github.com/DarshanS26/resolve-kit.git
+git clone https://github.com/DarshanS26/davinci-kit.git
 cd resolve-kit
 ./install.sh
 ```

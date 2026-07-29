@@ -152,14 +152,14 @@ else
   # ---- install icon --------------------------------------------------------
   ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
   mkdir -p "$ICON_DIR"
-  if [[ -f "$SCRIPT_DIR/packaging/resolve-kit.svg" ]]; then
-    cp "$SCRIPT_DIR/packaging/resolve-kit.svg" "$ICON_DIR/resolve-kit.svg"
-    echo "  Installed: $ICON_DIR/resolve-kit.svg"
+  if [[ -f "$SCRIPT_DIR/packaging/davinci-kit.svg" ]]; then
+    cp "$SCRIPT_DIR/packaging/davinci-kit.svg" "$ICON_DIR/davinci-kit.svg"
+    echo "  Installed: $ICON_DIR/davinci-kit.svg"
     if command -v gtk-update-icon-cache &>/dev/null; then
       gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
     fi
   else
-    warn "packaging/resolve-kit.svg not found — desktop entry will fall back to system icon"
+    warn "packaging/davinci-kit.svg not found — desktop entry will fall back to system icon"
   fi
 
   # ---- install desktop entry ------------------------------------------------
@@ -173,7 +173,7 @@ Name=DaVinci Resolve Kit
 GenericName=DaVinci Resolve Linux Studio Toolkit
 Comment=Transcode, export, diagnose, and optimize DaVinci Resolve on Linux
 Exec=${BIN_DIR}/resolve-gui
-Icon=resolve-kit
+Icon=davinci-kit
 StartupWMClass=davinci-kit
 Terminal=false
 Categories=AudioVideo;Video;AudioVideoEditing;Qt;
