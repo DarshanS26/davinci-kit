@@ -16,7 +16,7 @@ optdepends=(
   'nvidia-utils: NVIDIA GPU diagnostics in resolve-info'
 )
 source=("$pkgname-$pkgver.tar.gz::https://github.com/DarshanS26/davinci-kit/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('f0f8ef668877a41ddd4d21344fdbdb272d170d4686b58b1bf673269cb1212663')
 install=resolve-kit.install
 
 package() {
