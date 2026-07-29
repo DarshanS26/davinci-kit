@@ -161,7 +161,7 @@ class WatchView(QWidget):
 
         q_val = self.combo_quality.currentData() or "sq"
         a_val = self.combo_audio.currentData() or "auto"
-        cmd = [get_bin_path("resolve-watch"), "-q", q_val, "-a", a_val]
+        cmd = [get_bin_path("davinci-kit-watch"), "-q", q_val, "-a", a_val]
 
         out_dir = self.txt_out_dir.text().strip()
         if out_dir:
@@ -170,7 +170,7 @@ class WatchView(QWidget):
         cmd.append(watch_path)
 
         self.log_viewer.clear_log()
-        self.log_viewer.append_log(f"[INFO] Starting resolve-watch daemon on directory: {watch_path}")
+        self.log_viewer.append_log(f"[INFO] Starting davinci-kit-watch daemon on directory: {watch_path}")
         self.log_viewer.append_log(f"[INFO] Command: {' '.join(cmd)}")
 
         self.btn_start.setEnabled(False)

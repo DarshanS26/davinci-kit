@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "name": "resolve-kit",
+  "name": "davinci-kit",
   "description": "DaVinci Resolve Linux toolkit — transcode, export, diagnose, and optimize",
 
   "defaults": {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  resolve-fix — Launch DaVinci Resolve with library fix + GPU offload
+#  davinci-kit-fix — Launch DaVinci Resolve with library fix + GPU offload
 #
 #  On Arch/EndeavourOS, Resolve bundles outdated glib/gio libraries that crash
 #  on modern systems. This wrapper preloads the system's newer libraries and
@@ -43,7 +43,7 @@ for lib in "${PRELOAD_LIBS[@]}"; do
   if [[ -f "$lib" ]]; then
     ACTUAL_PRELOAD+=("$lib")
   else
-    echo "resolve-fix: WARNING — $lib not found, skipping" >&2
+    echo "davinci-kit-fix: WARNING — $lib not found, skipping" >&2
   fi
 done
 
@@ -118,7 +118,7 @@ if [[ "${XDG_SESSION_TYPE:-}" == "wayland" ]] || [[ -n "${WAYLAND_DISPLAY:-}" ]]
 fi
 
 # ── Launch Resolve ───────────────────────────────────────────────────────────
-echo "resolve-fix: Launching DaVinci Resolve with:" >&2
+echo "davinci-kit-fix: Launching DaVinci Resolve with:" >&2
 echo "  LD_PRELOAD = ${LD_PRELOAD:-none}" >&2
 echo "  PRIME offload = $PRIME_STATUS" >&2
 echo "  QT_QPA_PLATFORM = ${QT_QPA_PLATFORM:-$WAYLAND_STATUS}" >&2

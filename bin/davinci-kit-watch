@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  resolve-watch — Auto-transcode files in a directory using inotifywait
+#  davinci-kit-watch — Auto-transcode files in a directory using inotifywait
 #
 #  Watches a directory for new/modified video files and automatically
 #  transcodes them to DNxHR or AV1 for DaVinci Resolve (Linux / free codec set).
 #
 #  Usage:
-#    resolve-watch [OPTIONS] [DIRECTORY]
+#    davinci-kit-watch [OPTIONS] [DIRECTORY]
 #
 #  By default watches ~/Downloads for new media files.
 #  Requires: inotifywait (from inotify-tools package)
@@ -41,7 +41,7 @@ success() { echo -e "${GREEN}[DONE]${RESET}   $*"; }
 warn()    { echo -e "${YELLOW}[WARN]${RESET}   $*"; }
 error()   { echo -e "${RED}[ERR]${RESET}    $*" >&2; }
 
-# ── Comprehensive extension list (same as resolve-transcode) ───────────────────
+# ── Comprehensive extension list (same as davinci-kit-transcode) ───────────────────
 VIDEO_EXTS="mp4|mkv|avi|mov|mxf|wmv|flv|webm|ts|m2ts|mts|mpg|mpeg|m4v|3gp|3g2|ogv|ogm|vob|rmvb|rm|asf|divx|dv|f4v|hevc|h264|h265|ivf|mod|tod|m2v|y4m|webp|gif|nut|wtv|bink|bk2|swf|evo|dvr|av1"
 
 get_dnxhr_profile() {
@@ -158,7 +158,7 @@ transcode_file() {
 
 usage() {
 cat <<EOF
-${BOLD}resolve-watch${RESET} — Auto-transcode directory for DaVinci Resolve
+${BOLD}davinci-kit-watch${RESET} — Auto-transcode directory for DaVinci Resolve
 
   ${BOLD}USAGE${RESET}
     $0 [OPTIONS] [DIRECTORY]
@@ -245,9 +245,9 @@ fi
 
 # ── Daemon mode ───────────────────────────────────────────────────────────────
 if $DAEMON; then
-  LOG_FILE="/tmp/resolve-watch.log"
+  LOG_FILE="/tmp/davinci-kit-watch.log"
   info "Starting daemon mode, logging to $LOG_FILE"
-  echo "$(date): resolve-watch started — watching $WATCH_DIR (codec=$OUTPUT_CODEC q=$QUALITY)" > "$LOG_FILE"
+  echo "$(date): davinci-kit-watch started — watching $WATCH_DIR (codec=$OUTPUT_CODEC q=$QUALITY)" > "$LOG_FILE"
   nohup "$0" -c "$OUTPUT_CODEC" -q "$QUALITY" -a "$AUDIO_MODE" -o "$OUTPUT_DIR" "$WATCH_DIR" >> "$LOG_FILE" 2>&1 &
   echo "PID: $!"
   exit 0

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  resolve-export — Convert DaVinci Resolve exports to delivery formats
+#  davinci-kit-export — Convert DaVinci Resolve exports to delivery formats
 #
 #  Resolve exports DNxHR/ProRes .mov files. This script converts them to
 #  compressed formats suitable for YouTube, social media, or archival.
@@ -9,8 +9,8 @@
 #  (NVENC, AMF, QSV, VAAPI).
 #
 #  Usage:
-#    resolve-export [OPTIONS] <input.mov> [input2.mov ...]
-#    resolve-export [OPTIONS] <directory>
+#    davinci-kit-export [OPTIONS] <input.mov> [input2.mov ...]
+#    davinci-kit-export [OPTIONS] <directory>
 # =============================================================================
 
 set -euo pipefail
@@ -39,7 +39,7 @@ error()   { echo -e "${RED}[ERR]${RESET}   $*" >&2; }
 
 usage() {
 cat <<EOF
-${BOLD}resolve-export${RESET} — Convert Resolve exports to delivery formats
+${BOLD}davinci-kit-export${RESET} — Convert Resolve exports to delivery formats
 
   ${BOLD}USAGE${RESET}
     $0 [OPTIONS] <input.mov> [input2.mov ...]

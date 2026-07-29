@@ -204,7 +204,7 @@ class TranscodeView(QWidget):
         a_val = self.combo_audio.currentData() or "auto"
         jobs = str(self.spin_jobs.value())
 
-        cmd = [get_bin_path("resolve-transcode"), "-c", codec_val, "-q", q_val, "-a", a_val, "-j", jobs]
+        cmd = [get_bin_path("davinci-kit-transcode"), "-c", codec_val, "-q", q_val, "-a", a_val, "-j", jobs]
 
         out_dir = self.txt_out_dir.text().strip()
         if out_dir:

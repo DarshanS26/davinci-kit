@@ -171,7 +171,7 @@ class WatchDialog(QDialog):
         codec_val = self.combo_codec.currentData() or "av1"
         q_val = self.combo_quality.currentData() or "hq"
         a_val = self.combo_audio.currentData() or "auto"
-        cmd = [get_bin_path("resolve-watch"), "-c", codec_val, "-q", q_val, "-a", a_val]
+        cmd = [get_bin_path("davinci-kit-watch"), "-c", codec_val, "-q", q_val, "-a", a_val]
 
         out_dir = self.txt_out_dir.text().strip()
         if out_dir:
@@ -180,7 +180,7 @@ class WatchDialog(QDialog):
         cmd.append(watch_path)
 
         self.log_viewer.clear_log()
-        self.log_viewer.append_log(f"[INFO] Starting resolve-watch daemon on directory: {watch_path}")
+        self.log_viewer.append_log(f"[INFO] Starting davinci-kit-watch daemon on directory: {watch_path}")
         self.log_viewer.append_log(f"[INFO] Command: {' '.join(cmd)}")
 
         self.btn_start.setEnabled(False)

@@ -88,7 +88,7 @@ AAC is encumbered by Via LA patent pools. On Windows/macOS, the OS vendor (Micro
 ```
 ┌─────────────────┐     ffmpeg transcode     ┌─────────────────┐
 │  Source footage  │  ─────────────────────→  │  DNxHR/PCM .mov │
-│  (MP4/H264/AAC) │     resolve-transcode    │  Resolve import  │
+│  (MP4/H264/AAC) │     davinci-kit-transcode    │  Resolve import  │
 └─────────────────┘                          └────────┬────────┘
                                                       │
                                               Edit in Resolve
@@ -100,7 +100,7 @@ AAC is encumbered by Via LA patent pools. On Windows/macOS, the OS vendor (Micro
                                              └────────┬────────┘
                                                       │
                                               ffmpeg transcode
-                                           (resolve-export)
+                                           (davinci-kit-export)
                                                       │
                                                       ▼
                                              ┌─────────────────┐
@@ -132,12 +132,12 @@ ffmpeg -i input.mp4 -c:v copy -c:a pcm_s32le output.mp4
 ffmpeg -i input.mp4 -c:v dnxhd -profile:v dnxhr_lb -pix_fmt yuv422p \
   -c:a pcm_s16le output.mov
 
-# Or use resolve-transcode:
-resolve-transcode -q hq /path/to/footage          # High quality (default)
-resolve-transcode -q lb /path/to/footage          # Proxy quality
-resolve-transcode -q hqx -j 4 /path/to/raw       # 12-bit, 4 parallel
-resolve-transcode -a alac /path/to/footage         # ALAC audio (smaller)
-resolve-transcode video.mp4                         # Single file
+# Or use davinci-kit-transcode:
+davinci-kit-transcode -q hq /path/to/footage          # High quality (default)
+davinci-kit-transcode -q lb /path/to/footage          # Proxy quality
+davinci-kit-transcode -q hqx -j 4 /path/to/raw       # 12-bit, 4 parallel
+davinci-kit-transcode -a alac /path/to/footage         # ALAC audio (smaller)
+davinci-kit-transcode video.mp4                         # Single file
 ```
 
 **Export — Convert Resolve output for delivery:**
@@ -158,11 +158,11 @@ ffmpeg -i resolve_export.mov -c:v libx265 -crf 22 -preset medium \
 ffmpeg -i resolve_export.mov -c:v prores_ks -profile:v 3 \
   -pix_fmt yuv422p10le -c:a pcm_s24le output.mov
 
-# Or use resolve-export:
-resolve-export -p youtube export.mov              # YouTube H.264
-resolve-export -p h265 export.mov                 # H.265
-resolve-export -p prores export.mov               # ProRes 422 HQ
-resolve-export -p archive export.mov              # Near-lossless
+# Or use davinci-kit-export:
+davinci-kit-export -p youtube export.mov              # YouTube H.264
+davinci-kit-export -p h265 export.mov                 # H.265
+davinci-kit-export -p prores export.mov               # ProRes 422 HQ
+davinci-kit-export -p archive export.mov              # Near-lossless
 ```
 
 ### DNxHR Quality Tiers
@@ -255,7 +255,7 @@ DaVinci Resolve is built for Rocky Linux (RHEL-based) and bundles older versions
 Preload the system's newer libraries so Resolve uses consistent versions:
 
 ```bash
-# Method 1: LD_PRELOAD wrapper (resolve-fix)
+# Method 1: LD_PRELOAD wrapper (davinci-kit-fix)
 export LD_PRELOAD="/usr/lib/libglib-2.0.so.0:/usr/lib/libgobject-2.0.so.0:/usr/lib/libgio-2.0.so.0:/usr/lib/libgmodule-2.0.so.0"
 export LD_LIBRARY_PATH="/usr/lib:$LD_LIBRARY_PATH"
 exec /opt/resolve/bin/resolve "$@"
@@ -270,13 +270,13 @@ sudo cp /usr/lib/libgmodule-2.0.so.0 /opt/resolve/libs/
 ```
 
 ```bash
-# Method 3: Chris Titus Tech's resolve-fix script
+# Method 3: Chris Titus Tech's davinci-kit-fix script
 # https://github.com/ChrisTitusTech/resolve-linux
 ```
 
-### When to Use `resolve-fix`
+### When to Use `davinci-kit-fix`
 
-Use `resolve-fix` when Resolve exits immediately, crashes after a rolling-release system update, or reports GLib/GIO/Pango symbol errors. If Resolve already launches cleanly, you may not need the library preload path.
+Use `davinci-kit-fix` when Resolve exits immediately, crashes after a rolling-release system update, or reports GLib/GIO/Pango symbol errors. If Resolve already launches cleanly, you may not need the library preload path.
 
 ---
 
@@ -306,7 +306,7 @@ export QT_SCALE_FACTOR=1.0
 exec /opt/resolve/bin/resolve "$@"
 ```
 
-The `resolve-fix` launcher sets these variables for you. If you maintain a separate desktop entry, make sure it launches through that wrapper or exports equivalent variables.
+The `davinci-kit-fix` launcher sets these variables for you. If you maintain a separate desktop entry, make sure it launches through that wrapper or exports equivalent variables.
 
 ### EnvyControl GPU Mode
 
@@ -330,24 +330,24 @@ Hybrid mode + PRIME offload is recommended for daily use. Switch to NVIDIA only 
 
 ## 6. Transcoding Workflow
 
-### Automatic Transcoding with resolve-transcode
+### Automatic Transcoding with davinci-kit-transcode
 
 ```bash
 # Basic usage
-resolve-transcode /path/to/footage                # HQ quality, auto audio
-resolve-transcode -q sq /path/to/footage          # Standard quality
-resolve-transcode -q lb /path/to/footage          # Proxy quality
-resolve-transcode -q hqx -j 4 /path/to/raw        # 12-bit, 4 parallel jobs
-resolve-transcode -a alac /path/to/footage         # ALAC audio (smaller)
-resolve-transcode video.mp4                        # Single file
-resolve-transcode vid1.mp4 vid2.mkv               # Multiple files
-resolve-transcode -o /mnt/edit /mnt/raw            # Custom output dir
-resolve-transcode -n /path/to/footage              # Dry-run preview
+davinci-kit-transcode /path/to/footage                # HQ quality, auto audio
+davinci-kit-transcode -q sq /path/to/footage          # Standard quality
+davinci-kit-transcode -q lb /path/to/footage          # Proxy quality
+davinci-kit-transcode -q hqx -j 4 /path/to/raw        # 12-bit, 4 parallel jobs
+davinci-kit-transcode -a alac /path/to/footage         # ALAC audio (smaller)
+davinci-kit-transcode video.mp4                        # Single file
+davinci-kit-transcode vid1.mp4 vid2.mkv               # Multiple files
+davinci-kit-transcode -o /mnt/edit /mnt/raw            # Custom output dir
+davinci-kit-transcode -n /path/to/footage              # Dry-run preview
 ```
 
 ### Smart Audio Handling (auto mode)
 
-The `resolve-transcode` script with `-a auto` (default) automatically:
+The `davinci-kit-transcode` script with `-a auto` (default) automatically:
 
 | Source Audio | Action | Reason |
 |---|---|---|
@@ -366,13 +366,13 @@ The `resolve-transcode` script with `-a auto` (default) automatically:
 sudo pacman -S inotify-tools
 
 # Watch a folder for new files
-resolve-watch ~/Downloads
+davinci-kit-watch ~/Downloads
 
 # Watch with specific quality
-resolve-watch -q sq /mnt/ingest
+davinci-kit-watch -q sq /mnt/ingest
 
 # Run as background daemon
-resolve-watch -d /mnt/ingest
+davinci-kit-watch -d /mnt/ingest
 ```
 
 ### Manual FFmpeg Commands
@@ -387,28 +387,28 @@ After editing in Resolve, export as DNxHR/PCM .mov from the Deliver page, then c
 
 ```bash
 # YouTube 1080p (most common)
-resolve-export -p youtube export.mov
+davinci-kit-export -p youtube export.mov
 
 # YouTube 4K
-resolve-export -p youtube4k export.mov
+davinci-kit-export -p youtube4k export.mov
 
 # H.265 (smaller file, good quality)
-resolve-export -p h265 export.mov
+davinci-kit-export -p h265 export.mov
 
 # ProRes (for further editing in another NLE)
-resolve-export -p prores export.mov
+davinci-kit-export -p prores export.mov
 
 # WebM (VP9 + Opus, for web embedding)
-resolve-export -p webm export.mov
+davinci-kit-export -p webm export.mov
 
 # Near-lossless archive (H.264 CRF 15 + FLAC)
-resolve-export -p archive export.mov
+davinci-kit-export -p archive export.mov
 
 # Batch convert a directory
-resolve-export -p youtube ~/exports/
+davinci-kit-export -p youtube ~/exports/
 
 # Dry-run preview
-resolve-export -n export.mov
+davinci-kit-export -n export.mov
 ```
 
 All outputs use `.delivery.` suffix to avoid naming collisions (e.g., `export.delivery.mp4`).
@@ -424,8 +424,8 @@ DaVinci Resolve on Linux only imports fonts from `/usr/share/fonts` by default. 
 ### The Fix
 
 ```bash
-# Run resolve-fonts to update Fusion path map
-resolve-fonts
+# Run davinci-kit-fonts to update Fusion path map
+davinci-kit-fonts
 ```
 
 This script:
@@ -456,7 +456,7 @@ Chris Titus Tech recommends:
 - Audio: Opus (sounds better than AAC, supported by Resolve in .mkv container)
 - If you use Opus, record to .mkv and remux to .mov: `ffmpeg -i recording.mkv -c:v copy -c:a pcm_s24le recording.mov`
 
-**Alternative: Record H.264/Opus in OBS, then auto-transcode with `resolve-watch`.**
+**Alternative: Record H.264/Opus in OBS, then auto-transcode with `davinci-kit-watch`.**
 
 ---
 
@@ -466,7 +466,7 @@ For 4K footage on limited hardware, use a proxy workflow:
 
 1. **Create proxy files** (lower resolution, easier to decode):
    ```bash
-   resolve-transcode -q lb /path/to/4k_footage   # DNxHR LB proxies
+   davinci-kit-transcode -q lb /path/to/4k_footage   # DNxHR LB proxies
    ```
 
 2. **Edit with proxies** — In Resolve, go to Playback → Proxy Mode → Half Resolution
@@ -515,7 +515,7 @@ sudo pacman -S opencl-mesa  # or rocm-opencl-runtime
 sudo pacman -S intel-compute-runtime
 
 # 3. Test Resolve launch
-resolve-fix      # Launch with library, Wayland/X11, and PRIME fixes
+davinci-kit-fix      # Launch with library, Wayland/X11, and PRIME fixes
 
 # 4. If Wayland issues, force X11:
 QT_QPA_PLATFORM=xcb /opt/resolve/bin/resolve
@@ -550,7 +550,7 @@ On KDE Wayland, Resolve windows may not have title bars or may be unmovable.
 > **Correct settings:**
 >
 > ```bash
-> # In resolve-fix / desktop launcher:
+> # In davinci-kit-fix / desktop launcher:
 > export QT_AUTO_SCREEN_SCALE_FACTOR=1
 > export QT_SCALE_FACTOR=1.0          # MUST be 1.0 — compounds with DisplayScale!
 > ```
@@ -644,31 +644,31 @@ Since plugins don't work on the Free version, your export workflow remains:
 ```
 Resolve Free → Export DNxHR/PCM .mov
                 ↓
-         resolve-export (ffmpeg)
+         davinci-kit-export (ffmpeg)
                 ↓
         H.264/AAC .mp4 for delivery
 ```
 
-This is exactly what `resolve-export` handles — it's the external alternative to having encoders inside Resolve.
+This is exactly what `davinci-kit-export` handles — it's the external alternative to having encoders inside Resolve.
 
 ---
 
 ## 14. Backup & Migration
 
-### Using resolve-backup
+### Using davinci-kit-backup
 
 ```bash
 # Create backup
-resolve-backup
+davinci-kit-backup
 
 # Backup to specific directory
-resolve-backup -o ~/backups
+davinci-kit-backup -o ~/backups
 
 # Dry-run preview
-resolve-backup -n
+davinci-kit-backup -n
 
 # Restore from backup
-resolve-backup --restore resolve-backup-20260722.tar.gz
+davinci-kit-backup --restore davinci-kit-backup-20260722.tar.gz
 ```
 
 **What's backed up:**
@@ -696,7 +696,7 @@ resolve-backup --restore resolve-backup-20260722.tar.gz
 ### Resolve won't start
 
 1. ✅ Check OpenCL: `clinfo -l` — must show a GPU platform
-2. ✅ Try library fix: `resolve-fix` — preloads newer system libraries
+2. ✅ Try library fix: `davinci-kit-fix` — preloads newer system libraries
 3. ✅ Force X11: `QT_QPA_PLATFORM=xcb /opt/resolve/bin/resolve`
 4. ✅ Check logs: `~/.local/share/DaVinciResolve/logs/ResolveDebug.txt`
 5. ✅ Check conflicting OpenCL ICDs in `/etc/OpenCL/vendors/`
@@ -705,7 +705,7 @@ resolve-backup --restore resolve-backup-20260722.tar.gz
 ### Black video on import
 
 1. ✅ Check codec: `ffprobe input.mp4`
-2. ✅ If H.264/H.265 → transcode with `resolve-transcode`
+2. ✅ If H.264/H.265 → transcode with `davinci-kit-transcode`
 3. ✅ If AAC audio → transcode audio too (`-a pcm` or `-a alac`)
 
 ### No audio on import
@@ -728,7 +728,7 @@ resolve-backup --restore resolve-backup-20260722.tar.gz
 
 ### Fonts missing in titles
 
-1. ✅ Run `resolve-fonts` to update Fusion font path
+1. ✅ Run `davinci-kit-fonts` to update Fusion font path
 2. ✅ Or manually add paths in Fusion Settings → Path Map → Fonts
 3. ✅ Restart Resolve after font changes
 
@@ -751,7 +751,7 @@ A typical working Linux setup looks like this:
 | Resolve path | `/opt/resolve` |
 | Source media workflow | Transcode H.264/H.265/AAC media before import |
 | Editing codec | DNxHR or ProRes for intermediate editing |
-| Delivery workflow | Export DNxHR/ProRes from Resolve, then run `resolve-export` |
+| Delivery workflow | Export DNxHR/ProRes from Resolve, then run `davinci-kit-export` |
 
 ### Recommended launch environment for hybrid NVIDIA systems
 
@@ -771,14 +771,14 @@ If your desktop needs 125% Resolve UI scaling, set `DisplayScale=125` inside `~/
 | Tool | Purpose |
 |---|---|
 | `davinci-kit` | Desktop GUI for the toolkit |
-| `resolve-transcode` | Batch transcode media for import |
-| `resolve-audio` | Convert audio files to Resolve-friendly formats |
-| `resolve-export` | Convert Resolve renders for delivery |
-| `resolve-fix` | Launch Resolve with compatibility fixes |
-| `resolve-backup` | Backup/restore configs and assets |
-| `resolve-fonts` | Fix Fusion font paths |
-| `resolve-watch` | Auto-transcode a watch folder |
-| `resolve-info` | System diagnostics |
+| `davinci-kit-transcode` | Batch transcode media for import |
+| `davinci-kit-audio` | Convert audio files to Resolve-friendly formats |
+| `davinci-kit-export` | Convert Resolve renders for delivery |
+| `davinci-kit-fix` | Launch Resolve with compatibility fixes |
+| `davinci-kit-backup` | Backup/restore configs and assets |
+| `davinci-kit-fonts` | Fix Fusion font paths |
+| `davinci-kit-watch` | Auto-transcode a watch folder |
+| `davinci-kit-info` | System diagnostics |
 
 ---
 

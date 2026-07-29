@@ -68,7 +68,7 @@ class TabBar(QWidget):
 
         tools_menu = QMenu(self.btn_tools_menu)
 
-        act_fix = QAction("🛠️ Fix & Launch Resolve (resolve-fix)", self)
+        act_fix = QAction("🛠️ Fix & Launch Resolve (davinci-kit-fix)", self)
         act_fix.triggered.connect(self.run_fix_requested.emit)
         tools_menu.addAction(act_fix)
 

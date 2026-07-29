@@ -36,7 +36,7 @@ class DiagDialog(QDialog):
         title_lbl = QLabel("DaVinci Resolve Linux System Diagnostic", self)
         title_lbl.setObjectName("viewTitle")
 
-        sub_lbl = QLabel("Executes resolve-info script to inspect GPU, VRAM, OpenCL, GLib libraries, and Resolve environment", self)
+        sub_lbl = QLabel("Executes davinci-kit-info script to inspect GPU, VRAM, OpenCL, GLib libraries, and Resolve environment", self)
         sub_lbl.setObjectName("viewSub")
         sub_lbl.setWordWrap(True)
 
@@ -61,7 +61,7 @@ class DiagDialog(QDialog):
 
         # Action Footer
         footer = QHBoxLayout()
-        btn_run = QPushButton("🔄 Re-run Diagnostic (resolve-info)", self)
+        btn_run = QPushButton("🔄 Re-run Diagnostic (davinci-kit-info)", self)
         btn_run.setObjectName("primaryBtn")
         btn_run.clicked.connect(self.run_diagnostic)
 
@@ -83,8 +83,8 @@ class DiagDialog(QDialog):
 
     def run_diagnostic(self):
         self.txt_output.clear()
-        self.txt_output.append("[INFO] Running resolve-info system diagnostic...\n")
-        bin_path = get_bin_path("resolve-info")
+        self.txt_output.append("[INFO] Running davinci-kit-info system diagnostic...\n")
+        bin_path = get_bin_path("davinci-kit-info")
         self.runner = ProcessRunnerThread([bin_path])
         self.runner.output_line.connect(self.txt_output.append)
         self.runner.start()

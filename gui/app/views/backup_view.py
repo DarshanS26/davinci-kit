@@ -101,7 +101,7 @@ class BackupView(QWidget):
         r_title.setObjectName("sectionTitle")
         restore_layout.addWidget(r_title)
 
-        r_desc = QLabel("Select a previously generated resolve-backup tarball (.tar.gz) to restore your settings.", restore_card)
+        r_desc = QLabel("Select a previously generated davinci-kit-backup tarball (.tar.gz) to restore your settings.", restore_card)
         r_desc.setWordWrap(True)
         r_desc.setStyleSheet("font-size: 11px; color: #7e8299;")
         restore_layout.addWidget(r_desc)
@@ -110,7 +110,7 @@ class BackupView(QWidget):
         file_lbl = QLabel("Backup File:", restore_card)
         file_lbl.setFixedWidth(80)
         self.txt_restore_file = QLineEdit(restore_card)
-        self.txt_restore_file.setPlaceholderText("Select resolve-backup-*.tar.gz")
+        self.txt_restore_file.setPlaceholderText("Select davinci-kit-backup-*.tar.gz")
         btn_browse_file = QPushButton("Browse...", restore_card)
         btn_browse_file.setObjectName("secondaryBtn")
         btn_browse_file.clicked.connect(self._browse_restore_file)
@@ -169,7 +169,7 @@ class BackupView(QWidget):
 
     def _run_backup(self):
         dest = self.txt_backup_dir.text().strip()
-        cmd = [get_bin_path("resolve-backup")]
+        cmd = [get_bin_path("davinci-kit-backup")]
 
         if dest:
             cmd.extend(["-o", dest])
@@ -189,7 +189,7 @@ class BackupView(QWidget):
             self.log_viewer.append_log("[ERR] Please select a valid .tar.gz backup archive file to restore.")
             return
 
-        cmd = [get_bin_path("resolve-backup"), "--restore", tarball]
+        cmd = [get_bin_path("davinci-kit-backup"), "--restore", tarball]
 
         self.log_viewer.clear_log()
         self.log_viewer.append_log(f"[INFO] Restoring backup from: {tarball}")

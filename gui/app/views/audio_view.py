@@ -193,7 +193,7 @@ class AudioView(QWidget):
         chans = self.combo_chans.currentData() or "2"
         jobs = str(self.spin_jobs.value())
 
-        cmd = [get_bin_path("resolve-audio"), "-f", fmt, "-r", rate, "-c", chans, "-j", jobs]
+        cmd = [get_bin_path("davinci-kit-audio"), "-f", fmt, "-r", rate, "-c", chans, "-j", jobs]
 
         out_dir = self.txt_out_dir.text().strip()
         if out_dir:

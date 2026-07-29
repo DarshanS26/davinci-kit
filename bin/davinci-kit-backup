@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  resolve-backup — Back up and restore DaVinci Resolve settings, configs,
+#  davinci-kit-backup — Back up and restore DaVinci Resolve settings, configs,
 #                    LUTs, fonts, scripts, and macros on Linux
 #
 #  Adapted from ChrisTitusTech/resolve-linux/resolve_backup.sh
 #  Customized for EndeavourOS/Arch
 #
 #  Usage:
-#    resolve-backup [OPTIONS]
-#    resolve-backup --restore <archive.tar.gz>
+#    davinci-kit-backup [OPTIONS]
+#    davinci-kit-backup --restore <archive.tar.gz>
 # =============================================================================
 
 set -euo pipefail
@@ -35,7 +35,7 @@ header()  { echo -e "\n${BOLD}$*${RESET}"; }
 
 usage() {
 cat <<EOF
-${BOLD}resolve-backup${RESET} — Back up / restore DaVinci Resolve on Linux
+${BOLD}davinci-kit-backup${RESET} — Back up / restore DaVinci Resolve on Linux
 
   ${BOLD}BACKUP${RESET}
     $0 [OPTIONS]
@@ -62,7 +62,7 @@ ${BOLD}resolve-backup${RESET} — Back up / restore DaVinci Resolve on Linux
     $0                                    # Backup to current directory
     $0 -o ~/backups                       # Backup to specific directory
     $0 -n                                 # Dry-run preview
-    $0 --restore resolve-backup.tar.gz     # Restore from archive
+    $0 --restore davinci-kit-backup.tar.gz     # Restore from archive
 EOF
 exit 0
 }
@@ -119,10 +119,10 @@ EXCLUDE_PATHS=(
 
 # ── Backup ─────────────────────────────────────────────────────────────────────
 do_backup() {
-  header "=== resolve-backup ==="
+  header "=== davinci-kit-backup ==="
 
   local timestamp=$(date +%Y%m%d-%H%M%S)
-  local archive_name="resolve-backup-${timestamp}.tar.gz"
+  local archive_name="davinci-kit-backup-${timestamp}.tar.gz"
   local archive_path="${OUTPUT_DIR}/${archive_name}"
 
   # Filter to only existing paths
@@ -185,7 +185,7 @@ do_backup() {
 
 # ── Restore ───────────────────────────────────────────────────────────────────
 do_restore() {
-  header "=== resolve-backup (restore) ==="
+  header "=== davinci-kit-backup (restore) ==="
 
   [[ -f "$RESTORE_ARCHIVE" ]] || { error "Archive not found: $RESTORE_ARCHIVE"; exit 1; }
 

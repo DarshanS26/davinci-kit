@@ -278,7 +278,7 @@ class ExportView(QWidget):
             return
 
         preset = self.combo_preset.currentData() or "youtube"
-        cmd = [get_bin_path("resolve-export"), "-p", preset]
+        cmd = [get_bin_path("davinci-kit-export"), "-p", preset]
 
         res_val = self.combo_res.currentData() or "original"
         if res_val != "original":

@@ -120,7 +120,7 @@ class TopBar(QWidget):
 
         # GLib Info
         glib = results["glib"]
-        resolve_fix_exists = os.path.exists(os.path.expanduser("~/.local/bin/resolve-fix")) or os.path.exists("/usr/bin/resolve-fix")
+        resolve_fix_exists = os.path.exists(os.path.expanduser("~/.local/bin/davinci-kit-fix")) or os.path.exists("/usr/bin/davinci-kit-fix")
 
         if not glib.get("resolve_installed", True):
             self.lbl_glib.setText("🔴 Resolve: Missing")
@@ -133,13 +133,13 @@ class TopBar(QWidget):
                 self.lbl_glib.setText(f"🟡 GLib: Workaround Active")
                 self.lbl_glib.setToolTip(
                     f"Found {glib['count']} library mismatch(es).\n"
-                    "Common on rolling-release distros. Use resolve-fix if Resolve crashes."
+                    "Common on rolling-release distros. Use davinci-kit-fix if Resolve crashes."
                 )
             else:
                 self.lbl_glib.setText(f"🔴 GLib: Workaround Needed")
                 self.lbl_glib.setToolTip(
                     f"Found {glib['count']} library mismatch(es).\n"
-                    "resolve-fix is not installed. Use resolve-fix if Resolve crashes."
+                    "davinci-kit-fix is not installed. Use davinci-kit-fix if Resolve crashes."
                 )
 
 

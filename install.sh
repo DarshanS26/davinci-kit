@@ -37,14 +37,14 @@ check_cmd() {
 
 scripts=(
   "davinci-kit"
-  "resolve-transcode"
-  "resolve-audio"
-  "resolve-export"
-  "resolve-fix"
-  "resolve-backup"
-  "resolve-fonts"
-  "resolve-watch"
-  "resolve-info"
+  "davinci-kit-transcode"
+  "davinci-kit-audio"
+  "davinci-kit-export"
+  "davinci-kit-fix"
+  "davinci-kit-backup"
+  "davinci-kit-fonts"
+  "davinci-kit-watch"
+  "davinci-kit-info"
   "davinci-kit-update"
 )
 
@@ -104,7 +104,7 @@ else
 
   # Optional tools
   check_cmd parallel    "optional — enables -j parallel jobs in transcode/export/audio" || true
-  check_cmd inotifywait "optional — required only for resolve-watch"                    || true
+  check_cmd inotifywait "optional — required only for davinci-kit-watch"                    || true
 
   if [[ $missing_required -eq 1 ]]; then
     echo
@@ -190,7 +190,7 @@ DESKTOP
   # ---- legacy check ---------------------------------------------------------
   if [[ -f "$BIN_DIR/resolve-prime" ]] && [[ ! -L "$BIN_DIR/resolve-prime" ]]; then
     echo
-    warn "resolve-prime found (legacy, replaced by resolve-fix)"
+    warn "resolve-prime found (legacy, replaced by davinci-kit-fix)"
     warn "  You can remove it with: rm ~/.local/bin/resolve-prime"
   fi
 
@@ -198,13 +198,13 @@ DESKTOP
   echo
   echo "Installed! Available commands:"
   echo "  davinci-kit        — Graphical interface studio"
-  echo "  resolve-transcode  — Batch transcode media for Resolve (DNxHR / AV1)"
-  echo "  resolve-audio      — Batch convert audio files for Resolve (WAV/FLAC/ALAC/MP3)"
-  echo "  resolve-export     — Convert Resolve exports for delivery (H.264/H.265/AV1/NVENC)"
-  echo "  resolve-fix        — Launch Resolve with library fix + NVIDIA GPU offload"
-  echo "  resolve-backup     — Backup/restore Resolve settings"
-  echo "  resolve-fonts      — Fix font paths in Fusion"
-  echo "  resolve-watch      — Auto-transcode watch folder (DNxHR / AV1)"
-  echo "  resolve-info       — System diagnostics"
+  echo "  davinci-kit-transcode  — Batch transcode media for Resolve (DNxHR / AV1)"
+  echo "  davinci-kit-audio      — Batch convert audio files for Resolve (WAV/FLAC/ALAC/MP3)"
+  echo "  davinci-kit-export     — Convert Resolve exports for delivery (H.264/H.265/AV1/NVENC)"
+  echo "  davinci-kit-fix        — Launch Resolve with library fix + NVIDIA GPU offload"
+  echo "  davinci-kit-backup     — Backup/restore Resolve settings"
+  echo "  davinci-kit-fonts      — Fix font paths in Fusion"
+  echo "  davinci-kit-watch      — Auto-transcode watch folder (DNxHR / AV1)"
+  echo "  davinci-kit-info       — System diagnostics"
   echo "  davinci-kit-update — Update davinci-kit via git"
 fi

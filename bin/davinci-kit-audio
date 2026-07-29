@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  resolve-audio — Batch convert audio files for DaVinci Resolve on Linux
+#  davinci-kit-audio — Batch convert audio files for DaVinci Resolve on Linux
 #
 #  Converts unsupported audio formats (AAC, M4A, Opus, OGG, WMA, AC3, DTS, etc.)
 #  into Resolve-compatible formats: PCM WAV 24-bit 48kHz, FLAC, ALAC, or MP3.
 #
 #  Usage:
-#    resolve-audio [OPTIONS] <file|dir ...>
+#    davinci-kit-audio [OPTIONS] <file|dir ...>
 # =============================================================================
 
 set -euo pipefail
@@ -33,7 +33,7 @@ error()   { echo -e "${RED}[ERR]${RESET}   $*" >&2; }
 
 usage() {
 cat <<EOF
-${BOLD}resolve-audio${RESET} — Convert audio files for DaVinci Resolve on Linux
+${BOLD}davinci-kit-audio${RESET} — Convert audio files for DaVinci Resolve on Linux
 
   ${BOLD}USAGE${RESET}
     $0 [OPTIONS] <file> [file ...]       # Convert specific audio files

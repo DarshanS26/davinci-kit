@@ -6,7 +6,7 @@
 #    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #    source "${SCRIPT_DIR}/../lib/common.sh"
 #    # Or if installed on PATH:
-#    source "$(dirname "$(which resolve-transcode)")/../lib/common.sh"
+#    source "$(dirname "$(which davinci-kit-transcode)")/../lib/common.sh"
 # =============================================================================
 
 # ── Color helpers ─────────────────────────────────────────────────────────────

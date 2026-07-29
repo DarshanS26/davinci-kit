@@ -76,7 +76,7 @@ class FontView(QWidget):
 
         card_layout.addWidget(self.font_list)
 
-        btn_fix_fonts = QPushButton("🔤 Apply Font Path Fix (resolve-fonts)", card)
+        btn_fix_fonts = QPushButton("🔤 Apply Font Path Fix (davinci-kit-fonts)", card)
         btn_fix_fonts.setObjectName("primaryBtn")
         btn_fix_fonts.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_fix_fonts.clicked.connect(self._run_font_fix)
@@ -93,8 +93,8 @@ class FontView(QWidget):
 
     def _run_font_fix(self):
         self.log_viewer.clear_log()
-        self.log_viewer.append_log("[INFO] Running resolve-fonts script...")
-        bin_path = get_bin_path("resolve-fonts")
+        self.log_viewer.append_log("[INFO] Running davinci-kit-fonts script...")
+        bin_path = get_bin_path("davinci-kit-fonts")
         self.runner = ProcessRunnerThread([bin_path])
         self.runner.output_line.connect(self.log_viewer.append_log)
         self.runner.start()

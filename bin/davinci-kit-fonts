@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  resolve-fonts — Fix DaVinci Resolve font path configuration on Linux
+#  davinci-kit-fonts — Fix DaVinci Resolve font path configuration on Linux
 #
 #  By default, Resolve only looks in system font paths (/usr/share/fonts).
 #  User-installed fonts in ~/.local/share/fonts and ~/.fonts are invisible.

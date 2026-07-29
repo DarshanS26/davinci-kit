@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  resolve-transcode — Batch transcode media to DaVinci Resolve-friendly formats
+#  davinci-kit-transcode — Batch transcode media to DaVinci Resolve-friendly formats
 #                        (Linux / free codec set)
 #
 #  Output codecs (selectable with -c):
@@ -20,7 +20,7 @@
 #    • Color-coded output
 #
 #  Usage:
-#    resolve-transcode [OPTIONS] [PATH]
+#    davinci-kit-transcode [OPTIONS] [PATH]
 #
 #  Adapted from ChrisTitusTech/resolve-linux, enhanced for EndeavourOS/Arch
 # =============================================================================
@@ -53,7 +53,7 @@ header()  { echo -e "\n${BOLD}$*${RESET}"; }
 # ── Help ──────────────────────────────────────────────────────────────────────
 usage() {
 cat <<EOF
-${BOLD}resolve-transcode${RESET} — Batch transcode media for DaVinci Resolve on Linux
+${BOLD}davinci-kit-transcode${RESET} — Batch transcode media for DaVinci Resolve on Linux
 
   ${BOLD}USAGE${RESET}
     $0 [OPTIONS] <file> [file ...]       # Convert specific files
@@ -489,7 +489,7 @@ export -f process_file
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 main() {
-  header "=== resolve-transcode ==="
+  header "=== davinci-kit-transcode ==="
   check_deps
 
   # Build the file list: either from explicit args or directory scan

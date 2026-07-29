@@ -151,7 +151,7 @@ Use the **Inspector** tab to check any file before importing — it tells you if
 
 ## DNxHR Quality Presets
 
-Available in both the GUI Transcode tab and the `resolve-transcode` CLI:
+Available in both the GUI Transcode tab and the `davinci-kit-transcode` CLI:
 
 | Preset | Use case |
 |---|---|
@@ -179,52 +179,52 @@ All features are also available as command-line tools. These are useful for scri
 | Command | Purpose |
 |---|---|
 | `davinci-kit` | Launch the desktop GUI |
-| `resolve-transcode` | Batch transcode media to DNxHR or AV1 |
-| `resolve-audio` | Batch convert audio to WAV, FLAC, ALAC, or MP3 |
-| `resolve-export` | Convert Resolve renders to delivery formats |
-| `resolve-fix` | Launch Resolve with compatibility fixes and GPU offload |
-| `resolve-backup` | Back up or restore Resolve settings |
-| `resolve-fonts` | Add user font directories to Resolve/Fusion |
-| `resolve-watch` | Auto-transcode files in a watched folder |
-| `resolve-info` | Print system diagnostics |
+| `davinci-kit-transcode` | Batch transcode media to DNxHR or AV1 |
+| `davinci-kit-audio` | Batch convert audio to WAV, FLAC, ALAC, or MP3 |
+| `davinci-kit-export` | Convert Resolve renders to delivery formats |
+| `davinci-kit-fix` | Launch Resolve with compatibility fixes and GPU offload |
+| `davinci-kit-backup` | Back up or restore Resolve settings |
+| `davinci-kit-fonts` | Add user font directories to Resolve/Fusion |
+| `davinci-kit-watch` | Auto-transcode files in a watched folder |
+| `davinci-kit-info` | Print system diagnostics |
 | `davinci-kit-update` | Update via git |
 
 Transcode footage:
 
 ```bash
-resolve-transcode ~/Videos/footage
-resolve-transcode -q lb ~/Videos/footage       # proxy quality
-resolve-transcode -c av1 ~/Videos/footage      # AV1 output
-resolve-transcode -q hqx -j 4 ~/Videos/raw     # 12-bit, 4 parallel jobs
+davinci-kit-transcode ~/Videos/footage
+davinci-kit-transcode -q lb ~/Videos/footage       # proxy quality
+davinci-kit-transcode -c av1 ~/Videos/footage      # AV1 output
+davinci-kit-transcode -q hqx -j 4 ~/Videos/raw     # 12-bit, 4 parallel jobs
 ```
 
 Export for delivery:
 
 ```bash
-resolve-export export.mov                       # H.264 (CPU default)
-resolve-export -p h265 export.mov
-resolve-export -p nvenc export.mov              # NVIDIA GPU
-resolve-export -p youtube4k -r 4k export.mov
+davinci-kit-export export.mov                       # H.264 (CPU default)
+davinci-kit-export -p h265 export.mov
+davinci-kit-export -p nvenc export.mov              # NVIDIA GPU
+davinci-kit-export -p youtube4k -r 4k export.mov
 ```
 
 Convert audio:
 
 ```bash
-resolve-audio voice-note.m4a
-resolve-audio -f flac ~/Audio/session
+davinci-kit-audio voice-note.m4a
+davinci-kit-audio -f flac ~/Audio/session
 ```
 
 Watch a folder:
 
 ```bash
-resolve-watch ~/Downloads
-resolve-watch -q lb -d ~/Videos/ingest
+davinci-kit-watch ~/Downloads
+davinci-kit-watch -q lb -d ~/Videos/ingest
 ```
 
 Diagnostics:
 
 ```bash
-resolve-info
+davinci-kit-info
 ```
 
 ## Documentation

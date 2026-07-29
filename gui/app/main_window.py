@@ -210,9 +210,9 @@ class MainWindow(QMainWindow):
 
     def run_fix_resolve(self):
         self.log_panel.clear_logs()
-        self.log_panel.append_log("[INFO] Executing resolve-fix...")
+        self.log_panel.append_log("[INFO] Executing davinci-kit-fix...")
         self.log_panel.show()
-        bin_path = get_bin_path("resolve-fix")
+        bin_path = get_bin_path("davinci-kit-fix")
         self.runner = ProcessRunnerThread([bin_path])
         self.runner.output_line.connect(self.log_panel.append_log)
         self.runner.start()

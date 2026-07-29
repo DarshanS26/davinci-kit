@@ -11,9 +11,9 @@ optdepends=(
   'python-pyqt6: GUI frontend (recommended)'
   'python-pyside6: GUI frontend alternative'
   'parallel: parallel transcode/export/audio jobs'
-  'inotify-tools: resolve-watch folder monitoring'
-  'clinfo: OpenCL diagnostics in resolve-info'
-  'nvidia-utils: NVIDIA GPU diagnostics in resolve-info'
+  'inotify-tools: davinci-kit-watch folder monitoring'
+  'clinfo: OpenCL diagnostics in davinci-kit-info'
+  'nvidia-utils: NVIDIA GPU diagnostics in davinci-kit-info'
 )
 source=("$pkgname-$pkgver.tar.gz::https://github.com/DarshanS26/davinci-kit/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('f0f8ef668877a41ddd4d21344fdbdb272d170d4686b58b1bf673269cb1212663')

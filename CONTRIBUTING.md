@@ -5,7 +5,7 @@ Thanks for helping improve DaVinci Resolve Kit.
 ## Useful contributions
 
 - Distro-specific dependency notes
-- Bug reports with `resolve-info` output
+- Bug reports with `davinci-kit-info` output
 - Tested codec compatibility results
 - Safer launch fixes for different GPU/desktop combinations
 - GUI polish, screenshots, and packaging work
@@ -18,7 +18,7 @@ Please include:
 - DaVinci Resolve version and Free/Studio edition
 - GPU model and driver
 - Desktop session: X11 or Wayland
-- Output from `resolve-info`
+- Output from `davinci-kit-info`
 - Exact command you ran and the error output
 
 Do not upload private media unless you are comfortable making it public. A short `ffprobe` output is usually enough.

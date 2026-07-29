@@ -36,6 +36,6 @@ cd "$DEST"
 
 echo "=================================================="
 echo "Installed DaVinci Resolve Kit."
-echo "Commands: davinci-kit, resolve-transcode, resolve-export, resolve-info, ..."
+echo "Commands: davinci-kit, davinci-kit-transcode, davinci-kit-export, davinci-kit-info, ..."
 echo "Update later with: davinci-kit-update"
 echo "=================================================="
